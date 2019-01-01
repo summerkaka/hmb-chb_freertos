@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <fileVersion>4</fileVersion>
+    <fileChecksum>1143672062</fileChecksum>
+    <configuration>
+        <name>app</name>
+        <outputs>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\CMSIS_RTOS\cmsis_os.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\croutine.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\event_groups.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\portable\MemMang\heap_4.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\list.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\portable\IAR\ARM_CM4F\port.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\portable\IAR\ARM_CM4F\portasm.s</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\queue.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\tasks.c</file>
+            <file>$PROJ_DIR$\..\Middlewares\Third_Party\FreeRTOS\Source\timers.c</file>
+            <file>$PROJ_DIR$\..\Inc\AD5241.h</file>
+            <file>$PROJ_DIR$\..\Inc\Adaptor.h</file>
+            <file>$PROJ_DIR$\..\Inc\adc_app.h</file>
+            <file>$PROJ_DIR$\..\Inc\app.h</file>
+            <file>$PROJ_DIR$\..\Inc\battery.h</file>
+            <file>$PROJ_DIR$\..\Inc\can_app.h</file>
+            <file>$PROJ_DIR$\..\Inc\eeprom.h</file>
+            <file>$PROJ_DIR$\..\Inc\FieldCase.h</file>
+            <file>$PROJ_DIR$\..\Inc\FreeRTOSConfig.h</file>
+            <file>$PROJ_DIR$\..\Inc\load.h</file>
+            <file>$PROJ_DIR$\..\Inc\LTC2943.h</file>
+            <file>$PROJ_DIR$\..\Inc\sdadc_app.h</file>
+            <file>$PROJ_DIR$\..\Inc\SysTick.h</file>
+            <file>$PROJ_DIR$\..\App\uart_printf.c</file>
+            <file>$PROJ_DIR$\..\App\main.c</file>
+            <file>$PROJ_DIR$\..\App\AD5241.c</file>
+            <file>$PROJ_DIR$\..\App\sdadc_app.c</file>
+            <file>$PROJ_DIR$\..\App\Adaptor.c</file>
+            <file>$PROJ_DIR$\..\App\SysTick.c</file>
+            <file>$PROJ_DIR$\..\App\adc_app.c</file>
+            <file>$PROJ_DIR$\..\App\Battery.c</file>
+            <file>$PROJ_DIR$\..\App\eeprom.c</file>
+            <file>$PROJ_DIR$\..\App\FieldCase.c</file>
+            <file>$PROJ_DIR$\..\App\freertos.c</file>
+            <file>$PROJ_DIR$\..\App\load.c</file>
+            <file>$PROJ_DIR$\..\App\LTC2943.c</file>
+        </outputs>
+    </configuration>
+</project>
