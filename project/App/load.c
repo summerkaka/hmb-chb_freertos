@@ -33,13 +33,6 @@ DioDevice_t Fan = {
     .port = GCFAN_EN_GPIO_Port,
     .pin = GCFAN_EN_Pin,
 };
-Heater_t Heater = {
-    .pwm.status = kLoadOff,
-    .pwm.duty = 0,
-    .pwm.period = 10000,
-    .pwm.tim = &htim3,
-    .pwm.tim_channel = TIM_CHANNEL_2,
-};
 DioDevice_t Valve_1 = {
     .status = kLoadOff,
     .port = VALVE_1_EN_GPIO_Port,
@@ -50,43 +43,53 @@ DioDevice_t Valve_2 = {
     .port = VALVE_2_EN_GPIO_Port,
     .pin = VALVE_2_EN_Pin,
 };
-DioDevice_t Pump_1 = {
-	.status = kLoadOff,
-    .port = PUMP_EN_GPIO_Port,
-    .pin = PUMP_EN_Pin,
+PulseDevice_t Pump_1 = {
+	.dio.status = kLoadOff,
+    .dio.port = PUMP_EN_GPIO_Port,
+    .dio.pin = PUMP_EN_Pin,
 };
-DioDevice_t Pump_2 = {
-	.status = kLoadOff,
-    .port = PUMP_EN_GPIO_Port,
-    .pin = PUMP_EN_Pin,
+PulseDevice_t Pump_2 = {
+	.dio.status = kLoadOff,
+    .dio.port = PUMP_EN_GPIO_Port,
+    .dio.pin = PUMP_EN_Pin,
 };
-DioDevice_t PValve = {
-    .status = kLoadOff,
-    .port = PVALVE_EN_GPIO_Port,
-    .pin = PVALVE_EN_Pin,
+PulseDevice_t PValve = {
+    .dio.status = kLoadOff,
+    .dio.port = PVALVE_EN_GPIO_Port,
+    .dio.pin = PVALVE_EN_Pin,
+};
+Heater_t Heater = {
+    .pwm.status = kLoadOff,
+    .pwm.duty = 0,
+    .pwm.period = 10000,
+    .pwm.tim = &htim3,
+    .pwm.tim_channel = TIM_CHANNEL_2,
 };
 
+
+
 /* Code begin ----------------------------------------------------------------*/
-eBasicStatus DioSetTo(DioDevice_t *this, uint8_t val)
+void DioSetTo(DioDevice_t *this, uint8_t val)
 {
     if (this->status == kLoadError)
-        return this->status;
+        return;
     
     if (val > 0) {
         HAL_GPIO_WritePin(this->port, this->pin, GPIO_PIN_SET);
-        return this->status = kLoadOn;
+        this->status = kLoadOn;
     } else {
         HAL_GPIO_WritePin(this->port, this->pin, GPIO_PIN_RESET);
-        return this->status = kLoadOff;
+        this->status = kLoadOff;
     }
+    return;
 }
 
-eBasicStatus PwmSetTo(PwmDevice_t *this, float duty)
+void PwmSetTo(PwmDevice_t *this, float duty)
 {
     if (duty == 0) {
         HAL_TIM_PWM_Stop(this->tim, this->tim_channel);
         this->duty = 0;
-        return this->status = kLoadOff;
+        this->status = kLoadOff;
     } else {
         this->duty = duty;
         TIM_OC_InitTypeDef sConfigOC;
@@ -102,8 +105,9 @@ eBasicStatus PwmSetTo(PwmDevice_t *this, float duty)
             Error_Handler();
         }
         HAL_TIM_PWM_Start(this->tim, this->tim_channel);
-        return this->status = kLoadOn;
+        this->status = kLoadOn;
     }
+    return;
 }
 
 bool OpenDetect(DioDevice_t *load)
@@ -120,7 +124,24 @@ bool OpenDetect(DioDevice_t *load)
     return false;
 }
 
-
+void PulseRun(PulseDevice_t *pulse)
+{
+    if (pulse->sm_state == 0) {
+        return;
+    } else if (pulse->sm_state == 1) {
+        if (xTaskGetTickCount() - pulse->origin >= pulse->start_time) {
+            pulse->sm_state = 2;
+            DioSetTo(&pulse->dio, 1);
+            printf("PulseRun(): enter sm_2\n\r");
+        }
+    } else if (pulse->sm_state == 2) {
+        if (xTaskGetTickCount() - pulse->origin >= pulse->stop_time) {
+            pulse->sm_state = 0;
+            DioSetTo(&pulse->dio, 0);
+            printf("PulseRun(): enter sm_0\n\r");
+        }
+    }
+}
 
 
 

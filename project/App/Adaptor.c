@@ -37,8 +37,8 @@ static uint32_t second_11v5 = 0;
 void
 Thread_Adaptor(const void *param)
 {
-    uint32_t tick = 0;
-    uint32_t water_mark = 0;
+//    uint32_t tick = 0;
+//    uint32_t water_mark = 0;
     while (1) 
     {
         Adaptor.voltage = (float)ADCvalue[ADC_ADAPTOR] * 0.003742;             // adc / 100 / 0.0015;
@@ -47,20 +47,20 @@ Thread_Adaptor(const void *param)
             Adaptor.status = kAdaptorSupplying;
             Adaptor.connect_time = GetSecond();
             Adaptor.disconnect_time = -1;
-            printf("AdaptorInfoUpdate(): connect, time: %d\n\r", Adaptor.connect_time);
+            vprintf("AdaptorInfoUpdate(): connect, time: %d\n\r", Adaptor.connect_time);
         } else if (Adaptor.status == kAdaptorSupplying) {
             if (Adaptor.voltage <= ADAPT_DISCONN_TH) {
                 Adaptor.status = kAdaptorNotExist;
                 second_11v5 = 0;
                 Adaptor.disconnect_time = GetSecond();
                 Adaptor.connect_time = -1;
-                printf("AdaptorInfoUpdate(): disconnect, time: %d\n\r", Adaptor.disconnect_time);
+                vprintf("AdaptorInfoUpdate(): disconnect, time: %d\n\r", Adaptor.disconnect_time);
             } else if (Adaptor.voltage <= ADAPT_OVERLOAD_TH) {
                 if (second_11v5 == 0) {
                     second_11v5 = GetSecond();
                 } else if (GetSecond() - second_11v5 >= 3) {
                     Adaptor.status = kAdaptorOverLoad;
-                    printf("AdaptorInfoUpdate(): overload, time: %d\n\r", second_11v5);
+                    vprintf("AdaptorInfoUpdate(): overload, time: %d\n\r", second_11v5);
                 }
             } else {
                 second_11v5 = 0;
@@ -71,9 +71,9 @@ Thread_Adaptor(const void *param)
                 Adaptor.status = kAdaptorSupplying;
         }
         
-        tick = xTaskGetTickCount();
-        water_mark = uxTaskGetStackHighWaterMark(tid_adaptor);
-        debug("Adaptor: tick %d, watermark %d\n\r", tick, water_mark);
+//        tick = xTaskGetTickCount();
+//        water_mark = uxTaskGetStackHighWaterMark(tid_adaptor);
+//        vprintf("Adaptor: tick %d, watermark %d\n\r", tick, water_mark);
         vTaskDelay(50 / portTICK_PERIOD_MS);    // sleep 50ms
     }
 

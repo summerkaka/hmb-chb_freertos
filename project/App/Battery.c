@@ -50,6 +50,7 @@ stBattery Battery_1 = {
     .mux_on = true,
     .gauge = &Gauge1,
     .hi2c = &hi2c1,
+    .mutex_i2c = NULL,                                                          // variable must be initialized with a constant value, so .mutex_i2c = mutex_i2c0 is wrong, mutex_i2c0 is also a variable
     .ntc_adc = &ADCvalue[ADC_NTC1],
     .charge_port = CHARGE_1_EN_GPIO_Port,
     .charge_pin = CHARGE_1_EN_Pin,
@@ -66,6 +67,7 @@ stBattery Battery_2 = {
     .mux_on = true,
     .gauge = &Gauge2,
     .hi2c = &hi2c2,
+    .mutex_i2c = NULL,
     .ntc_adc = &ADCvalue[ADC_NTC2],
     .charge_port = CHARGE_2_EN_GPIO_Port,
     .charge_pin = CHARGE_2_EN_Pin,
@@ -91,7 +93,7 @@ ChargeOn(stBattery *battery, eChargeMode mode)
 
     battery->peak_volt = 0;
     battery->peak_time = 0;
-    //battery->scale_flag &= ~REACHTOP;
+    battery->scale_flag &= ~REACHTOP;
     battery->tick_gaugesample = 0;                                              // to prevent spurious CheckFaulty()
     battery->tick_chargecheck = 0;
     memset(battery->v_ringbuf.data, 0, RING_BUF_SIZE * sizeof(battery->v_ringbuf.data[0]));
@@ -100,7 +102,7 @@ ChargeOn(stBattery *battery, eChargeMode mode)
     battery->v_ringbuf.clear = false;
     battery->finish_code = 0;
 
-    printf("charge on bat_%d, phase=%d, status %d\n\r", battery->index, mode, battery->status);
+    vprintf("charge on bat_%d, phase=%d, status %d\n\r", battery->index, mode, battery->status);
     if (mode == kFast) {
         if (FieldCase.consumption >= 10)
             SetChargeCurrent(battery, DYNAMIC_CHARGE_AMPS);
@@ -125,11 +127,11 @@ ChargeOn(stBattery *battery, eChargeMode mode)
     } else if (mode == kConstant) {
         SetChargeCurrent(battery, CONSTANT_AMPS);
         battery->tick_constcharge = GetMinute();
-//        if (battery->scale_flag & FIRSTCHARGE && battery->level < 14666) {      // equal to 13V bat
-//            battery->constant_timer = 660;
-//            battery->scale_flag &= ~FIRSTCHARGE;
-//        } else
-//            battery->constant_timer = (BAT_MAX_MAH - battery->level) / CONSTANT_AMPS / 1000 / 0.9 * 60;  // unit minute
+        if (battery->scale_flag & FIRSTCHARGE && battery->level < 14666) {      // equal to 13V bat
+            battery->constant_timer = 660;
+            battery->scale_flag &= ~FIRSTCHARGE;
+        } else
+            battery->constant_timer = (BAT_MAX_MAH - battery->level) / CONSTANT_AMPS / 1000 / 0.9 * 60;  // unit minute
         HAL_GPIO_WritePin(battery->charge_port, battery->charge_pin, GPIO_PIN_SET);
         battery->status = kstsConstant;
     }
@@ -146,7 +148,7 @@ ChargeOff(stBattery *battery, uint8_t option)
 {
     HAL_GPIO_WritePin(battery->charge_port, battery->charge_pin, GPIO_PIN_RESET);
 
-    printf("charge off bat_%d, status %d\n\r", battery->index, battery->status);
+    vprintf("charge off bat_%d, status %d\n\r", battery->index, battery->status);
     if (battery->status == kstsFastCharge) {
         battery->charge_finish_time = GetMinute();
         if (battery->charge_finish_time - battery->fast_start_time >= 120)      // effective charge time
@@ -169,10 +171,13 @@ ChargeOff(stBattery *battery, uint8_t option)
         battery->scale_flag = 0x00;
         if (battery->level > battery->capacity) {
             battery->level = battery->capacity;
+
+            osMutexWait(battery->mutex_i2c, osWaitForever); 
             if (LTC2943_Write_mAh(battery->gauge, battery->capacity)) {         // uplimit of max electron quantity
                 battery->status = kstsError;
                 battery->err_code = GAUGE_FAIL;
             }
+            osMutexRelease(battery->mutex_i2c);
         }
     }
 
@@ -189,7 +194,7 @@ SupplyOn(stBattery *bat)
     if (bat->status <= kstsError)
         return HAL_ERROR;
 
-    printf("supply on bat_%d, status %d\n\r", bat->index, bat->status);
+    vprintf("supply on bat_%d, status %d\n\r", bat->index, bat->status);
     HAL_GPIO_WritePin(bat->supply_port, bat->supply_pin, GPIO_PIN_RESET);
     bat->mux_on = true;
     return HAL_OK;
@@ -198,7 +203,7 @@ SupplyOn(stBattery *bat)
 static HAL_StatusTypeDef
 SupplyOff(stBattery *bat)
 {
-    printf("supply off bat_%d, status %d\n\r", bat->index, bat->status);
+    vprintf("supply off bat_%d, status %d\n\r", bat->index, bat->status);
     HAL_GPIO_WritePin(bat->supply_port, bat->supply_pin, GPIO_PIN_SET);
     bat->mux_on = false;
     return HAL_OK;
@@ -233,11 +238,17 @@ static void
 Calibrate(stBattery *bat, eCheckMode mode)
 {
     bat->gauge->acr_ofuf = 0;
-    if (LTC2943_Write_mAh(bat->gauge, bat->level)) {
+    HAL_StatusTypeDef ret;
+
+    osMutexWait(bat->mutex_i2c, osWaitForever);
+    ret = LTC2943_Write_mAh(bat->gauge, bat->level);
+    osMutexRelease(bat->mutex_i2c);
+    if (ret != HAL_OK) {
         ErrorHandler(bat, GAUGE_FAIL);
         return;
     }
-    printf("Calibrate(): mode %d, bat_%d scale_flag 0x%02x, capacity %.0f, ng %.3f\n\r", mode, bat->index, bat->scale_flag, bat->capacity, bat->ng);
+
+    vprintf("Calibrate(): mode %d, bat_%d scale_flag 0x%02x, capacity %.0f, ng %.3f\n\r", mode, bat->index, bat->scale_flag, bat->capacity, bat->ng);
 
     // aging detect
     if (bat->is_aged == true)
@@ -334,25 +345,25 @@ CheckFaulty(stBattery *bat)
             if (bat->cell_open_time == 0) {
                 bat->cell_open_time = GetSecond();
             } else if (GetSecond() - bat->cell_open_time >= 10) {
-                printf("CheckFaulty(): battery_%d current: %.2f, voltage: %.2f\n\r", bat->index, bat->current, bat->voltage);
+                vprintf("CheckFaulty(): battery_%d current: %.2f, voltage: %.2f\n\r", bat->index, bat->current, bat->voltage);
                 ErrorHandler(bat, CELL_OPEN);
             }
         } else {
             bat->cell_open_time = 0;
         }
         if (bat->peak_volt - bat->voltage >= DROP_VOLTAGE) {
-            printf("CheckFaulty(): battery_%d peak_v: %.2f, v: %.2f, i_transit_down time: %d, current second: %d\n\r", bat->index, bat->peak_volt, bat->voltage, bat->i_transit_down, GetSecond());
+            vprintf("CheckFaulty(): battery_%d peak_v: %.2f, v: %.2f, i_transit_down time: %d, current second: %d\n\r", bat->index, bat->peak_volt, bat->voltage, bat->i_transit_down, GetSecond());
             ErrorHandler(bat, CELL_SHORT);
         }
     }
     if (bat->current > BAT_ERR_CHARGE_CURRENT || bat->current < BAT_ERR_SUPPLY_CURRENT) {
-        printf("CheckFaulty(): battery_%d current: %.2f, voltage: %.2f\n\r", bat->index, bat->current, bat->voltage);
+        vprintf("CheckFaulty(): battery_%d current: %.2f, voltage: %.2f\n\r", bat->index, bat->current, bat->voltage);
         ErrorHandler(bat, OVER_CURRENT);
     }
     if (bat->temperature > BAT_ERROR_TH_TEMP) {
         if ((bat->mux_on && FieldCase.consumption >= 3 && Adaptor.status == kAdaptorNotExist) ||
                 bat->status >= kstsPreCharge) {
-            printf("CheckFaulty(): battery_%d temp: %.2f\n\r", bat->index, bat->temperature);
+            vprintf("CheckFaulty(): battery_%d temp: %.2f\n\r", bat->index, bat->temperature);
             ErrorHandler(bat, OVER_HEAT);
         }
     }
@@ -417,7 +428,7 @@ CheckFastChargeStop(stBattery *bat)
 
         if (GetSecond() - bat->i_transit_down <= 1) {                           // i_transit_down just happens
             if (bat->v_ringbuf.clear == false) {
-                printf("CheckFastChargeStop(): bat_%d clear v_ring_buf\n\r", bat->index);
+                vprintf("CheckFastChargeStop(): bat_%d clear v_ring_buf\n\r", bat->index);
                 for (int i = 0; i < RING_BUF_SIZE; i++)
                     bat->v_ringbuf.data[i] = bat->voltage;
                 bat->peak_volt = bat->voltage;
@@ -514,8 +525,11 @@ BatteryInfoDeInit(stBattery *battery)
     battery->q_acm_discharge = 0;
     battery->err_code = 0;
     battery->finish_code = 0;
-
     battery->gauge->acr_ofuf = 0;
+    if (battery->index == 1)
+        battery->mutex_i2c = mutex_i2c0;
+    else if (battery->index == 2)
+        battery->mutex_i2c = mutex_i2c1;
 }
 
 static HAL_StatusTypeDef
@@ -526,9 +540,12 @@ BatteryInfoInit(stBattery *battery)
     BatteryInfoDeInit(battery);
     battery->status = kstsFloat;
     if (battery->mode == kCalifornia) {
-//        battery->scale_flag |= FIRSTCHARGE;
+        battery->scale_flag |= FIRSTCHARGE;
     }
-    if ((ret = Init_LTC2943(battery->gauge)) != HAL_OK) {
+    osMutexWait(battery->mutex_i2c, osWaitForever);
+    ret = Init_LTC2943(battery->gauge);
+    osMutexRelease(battery->mutex_i2c);
+    if (ret) {
         ErrorHandler(battery, GAUGE_FAIL);
         return ret;
     }
@@ -536,8 +553,11 @@ BatteryInfoInit(stBattery *battery)
     HAL_Delay(64);                                                              // wait for one conv after init
 
     ret = HAL_ERROR;
-    for (i = 0; i < 3 && ret != HAL_OK; i++)
+    for (i = 0; i < 3 && ret != HAL_OK; i++) {
+        osMutexWait(battery->mutex_i2c, osWaitForever);
         ret = Get_Gauge_Information(battery->gauge);
+        osMutexRelease(battery->mutex_i2c);
+    }
     if (i == 3) {
         ErrorHandler(battery, GAUGE_FAIL);
         return ret;
@@ -547,14 +567,18 @@ BatteryInfoInit(stBattery *battery)
 
     battery->current = battery->gauge->current;
     
-    printf("BatteryInfoInit(): load battery_%d data from eeprom...\n\r", battery->index);
+    vprintf("BatteryInfoInit(): load battery_%d data from eeprom...\n\r", battery->index);
     if (BatteryDataLoad(battery) == HAL_OK) {                                   // information is stored in EEPROM and load successfully
-        printf("ok\n\r");
+        vprintf("ok\n\r");
         if (battery->level > 24000 || battery->level < -2000) {
-            printf("BatteryInfoInit(): load bat_%d level %.0f is abnormal\n\r", battery->index, battery->level);
+            vprintf("BatteryInfoInit(): load bat_%d level %.0f is abnormal\n\r", battery->index, battery->level);
             goto INITIALIZE_LEVEL;
         }
+
+        osMutexWait(battery->mutex_i2c, osWaitForever);
         ret = LTC2943_Write_mAh(battery->gauge, battery->level);
+        osMutexRelease(battery->mutex_i2c);
+
         if (ret != HAL_OK) {
             battery->status = kstsError;
             battery->err_code = GAUGE_FAIL;
@@ -565,7 +589,7 @@ BatteryInfoInit(stBattery *battery)
         goto INITIALIZE;
 
 INITIALIZE:
-    printf("BatteryInfoInit(): INITIALIZE bat_%d matrix\n\r", battery->index);
+    vprintf("BatteryInfoInit(): INITIALIZE bat_%d matrix\n\r", battery->index);
     for (j = 0; j < RL_DEP; j++) {
         for (i = 0; i < RL_WID; i++) {                                          // -600 is to make red_line be 0 when current is 0 in 25C (9th position in depth, 9*50=450)
             battery->red_line[j][i] = 50*j + 200*i - 450;                       // j is temperature, +50 every 3C, i is current, +200 every 1A
@@ -580,9 +604,13 @@ INITIALIZE_LEVEL:                                                               
     } else {
         battery->level = 22e3 * (battery->voltage - 11) / 3;	                // plan to probably over-estimate capacity
     }
-    printf("BatteryInfoInit(): INITIALIZE_LEVEL bat_%d level to %.0f with voltage: %.2f, ofuf: %d\n\r", battery->index, battery->level, battery->voltage, battery->gauge->acr_ofuf);
+    vprintf("BatteryInfoInit(): INITIALIZE_LEVEL bat_%d level to %.0f with voltage: %.2f, ofuf: %d\n\r", battery->index, battery->level, battery->voltage, battery->gauge->acr_ofuf);
     battery->gauge->acr_ofuf = 0;
+
+    osMutexWait(battery->mutex_i2c, osWaitForever);
     ret = LTC2943_Write_mAh(battery->gauge, battery->level);
+    osMutexRelease(battery->mutex_i2c);
+
     if (ret != HAL_OK) {
         battery->err_code = GAUGE_FAIL;
         battery->status = kstsError;
@@ -595,60 +623,8 @@ ErrorHandler(stBattery *bat, uint16_t err_code)
 {
     bat->status = kstsError;
     bat->err_code |= err_code;
-    printf("ErrorHandler(): battery_%d error!! err_code: %2x\n\r", bat->index, err_code);
+    vprintf("ErrorHandler(): battery_%d error!! err_code: %2x\n\r", bat->index, err_code);
     BatteryErrorLog(bat);
-}
-
-static void
-BatteryInfoUpdate(stBattery *battery)
-{
-    int8_t acr_ofuf;
-    uint16_t adccode;
-    if (battery->index == 0 || battery->index > 2)                              // index number is 1 or 2 for 2 batteries
-        return;
-
-    if (!CheckConnection(battery)) {
-        if (battery->status != kstsNotExist) {
-            printf("bat_%d disconnect\n\r", battery->index);
-            BatteryInfoDeInit(battery);
-        }
-        return;
-    } else if (battery->status == kstsNotExist) {                               // initial for new connection
-        printf("bat_% connect\n\r", battery->index);
-        BatteryInfoInit(battery);
-        return;
-    }
-
-    adccode = *(battery->ntc_adc);
-    battery->temperature = -33.95 * log((float)adccode) + 269.94;
-
-    acr_ofuf = battery->gauge->acr_ofuf;
-    if (Get_Gauge_Information(battery->gauge)) {
-        ErrorHandler(battery, GAUGE_FAIL);
-        return;
-    } else {
-        if (acr_ofuf != battery->gauge->acr_ofuf) {
-            printf("BatteryInfoUpdate(): bat_%d acr_ofuf is %d, level is %.0f\n\r", battery->index, battery->gauge->acr_ofuf, battery->gauge->level);
-        }
-        if (battery->status == kstsError && battery->err_code == 0x40) {    // self-recover from gauge communication fail, ONLY if error is GAUGE_FAIL
-            battery->status = kstsFloat;
-        }
-    }
-
-    // get current before voltage for impedance algorithm
-    if (battery->gauge->current - battery->current >= 2) {                  // current transient up
-        battery->i_transit_up = GetSecond();
-    } else if (battery->current - battery->gauge->current >= 2) {           // current transient down
-        battery->i_transit_down = GetSecond();
-    }
-    battery->current = battery->gauge->current;
-
-    // get voltage
-    battery->voltage = battery->gauge->voltage;
-
-    battery->level = battery->gauge->level >= 0 ? battery->gauge->level : 0;
-    RemainTimePredict(battery);
-    CheckFaulty(battery);
 }
 
 static void
@@ -686,22 +662,22 @@ BatteryChargeControl(stBattery *battery)
     case kstsFastCharge:
         if (ret = CheckFastChargeStop(battery)) {
             if (ret > 1) {
-                printf("ChargeControl(): terminate bat_%d fast-charge because of condition_%d\n\r", battery->index, ret);
+                vprintf("ChargeControl(): terminate bat_%d fast-charge because of condition_%d\n\r", battery->index, ret);
                 ChargeOff(battery, 1);
             } else if (ret == 1) {
-                printf("ChargeControl(): finish bat_%d fast-charge\n\r", battery->index);
+                vprintf("ChargeControl(): finish bat_%d fast-charge\n\r", battery->index);
                 ChargeOff(battery, 0);
                 ChargeOn(battery, kTrickle);                                    // set 0.1C trickle charge
             }
             battery->finish_code = ret;
         } else {
             if (FieldCase.consumption >= 10 && battery->charge_iset != DYNAMIC_CHARGE_AMPS) {
-                printf("ChargeControl(): FastCharge change bat_%d charge_iset to %.1f\n\r", battery->index, DYNAMIC_CHARGE_AMPS);
+                vprintf("ChargeControl(): FastCharge change bat_%d charge_iset to %.1f\n\r", battery->index, DYNAMIC_CHARGE_AMPS);
                 SetChargeCurrent(battery, DYNAMIC_CHARGE_AMPS);                 // set new charge current
                 battery->fastcharge_timer *= MAX_CHARGE_AMPS / DYNAMIC_CHARGE_AMPS;
                 battery->chgdisp_timer *= MAX_CHARGE_AMPS / DYNAMIC_CHARGE_AMPS;
             } else if (FieldCase.consumption <= 7 && GetSecond() - FieldCase.i_transit_down > 5 && battery->charge_iset != MAX_CHARGE_AMPS) {
-                printf("ChargeControl(): FastCharge change bat_%d charge_iset to %.1f\n\r", battery->index, MAX_CHARGE_AMPS);
+                vprintf("ChargeControl(): FastCharge change bat_%d charge_iset to %.1f\n\r", battery->index, MAX_CHARGE_AMPS);
                 SetChargeCurrent(battery, MAX_CHARGE_AMPS);
                 battery->fastcharge_timer *= DYNAMIC_CHARGE_AMPS / MAX_CHARGE_AMPS;
                 battery->chgdisp_timer *= DYNAMIC_CHARGE_AMPS / MAX_CHARGE_AMPS;
@@ -715,10 +691,10 @@ BatteryChargeControl(stBattery *battery)
     case kstsTrickle:
         if (Adaptor.status != kAdaptorSupplying) {
             ChargeOff(battery, 1);
-//            battery->scale_flag |= REACHTOP;
+            battery->scale_flag |= REACHTOP;
         } else if (battery->voltage >= CHARGE_STOP_TH_VOLT || GetMinute() - battery->trickle_start_time >= TRICKLE_TIME) {    // trickle charge time over
             ChargeOff(battery, 1);
-//            battery->scale_flag |= REACHTOP;
+            battery->scale_flag |= REACHTOP;
         }                                                                       // do nothing for the rest condition, wait for trickle timeout
         break;
     case kstsConstant:
@@ -736,10 +712,10 @@ BatteryChargeControl(stBattery *battery)
             }
             if (fabs(battery->current - CONSTANT_AMPS) >= 0.05) {               // close-loop charge-current control
                 if (fabs(battery->current - CONSTANT_AMPS) > 1)
-                    printf("ChargeControl(): constant charge abnormal\n\r");
+                    vprintf("ChargeControl(): constant charge abnormal\n\r");
                 battery->charge_iset += CONSTANT_AMPS - battery->current;
                 SetChargeCurrent(battery, battery->charge_iset);
-                printf("ChargeControl(): ConstantCharge change bat_%d charge_iset to %.2f\n\r", battery->index, battery->charge_iset);
+                vprintf("ChargeControl(): ConstantCharge change bat_%d charge_iset to %.2f\n\r", battery->index, battery->charge_iset);
             }
         }
     case kstsFinish:                                                            // use to inform, and prevent charge again
@@ -768,28 +744,28 @@ BatterySupplyControl(stBattery *bat)
                 if (bat->substitute->status <= kstsError) {
                     if (lo_pwr_beep == false) {
                         lo_pwr_beep = true;
-                        printf("BatterySupplyControl(): battery_%d  capacity is low\n\r", bat->index);
+                        vprintf("BatterySupplyControl(): battery_%d  capacity is low\n\r", bat->index);
                     }
                 } else if (bat->substitute->remain_time < 0 || bat->substitute->mux_on == true) {   // another bat is unavailable or dual-mode is on
                     if (lo_pwr_beep == false) {
                         lo_pwr_beep = true;
-                        printf("BatterySupplyControl(): battery_%d both battery capacity are low\n\r", bat->index);
+                        vprintf("BatterySupplyControl(): battery_%d both battery capacity are low\n\r", bat->index);
                     }
                 } else {                                                        // another is available
                     SupplyOn(bat->substitute);
                     HAL_Delay(1);
                     SupplyOff(bat);
-                    printf("BatterySupplyControl(): battery_%d capacity is low, switch to battery_%d\n\r", bat->index, bat->substitute->index);
+                    vprintf("BatterySupplyControl(): battery_%d capacity is low, switch to battery_%d\n\r", bat->index, bat->substitute->index);
                 }
                 if (bat->remain_time >= 0) {
                     bat->remain_time = -1;
-//                    bat->scale_flag |= REACHBOTTOM;
+                    bat->scale_flag |= REACHBOTTOM;
                     Calibrate(bat, kReachBottom);
-//                    bat->scale_flag &= ~REACHTOP;
+                    bat->scale_flag &= ~REACHTOP;
                 }
             } else if (need_dual_bat == false && bat->substitute->mux_on == true) {
                 if (bat->level <= bat->substitute->level){
-                    printf("BatterySupplyControl(): turn off bat_%d for single mode\n\r", bat->index);
+                    vprintf("BatterySupplyControl(): turn off bat_%d for single mode\n\r", bat->index);
                     SupplyOff(bat);
                 }
             }
@@ -799,7 +775,7 @@ BatterySupplyControl(stBattery *bat)
             SupplyOn(bat);
         } else if (need_dual_bat == true) {
             if (bat->remain_time != -1) {
-                printf("BatterySupplyControl(): turn on bat_%d for dual mode\n\r", bat->index);
+                vprintf("BatterySupplyControl(): turn on bat_%d for dual mode\n\r", bat->index);
                 SupplyOn(bat);
             }
         } else {
@@ -823,20 +799,23 @@ Battery_HwInit(void)
 
     Battery_1.mode = kGlobal;
     Battery_2.mode = kGlobal;
+    
+    Battery_1.mutex_i2c = mutex_i2c0;
+    Battery_2.mutex_i2c = mutex_i2c1;
 
     if (CheckConnection(&Battery_1)) {
         BatteryInfoInit(&Battery_1);
         CheckFaulty(&Battery_1);
     } else {
         if (BatteryDataClear(&Battery_1) == HAL_OK)
-            printf("Battery_HwInit(): clear battery_1 data\n\r");
+            vprintf("Battery_HwInit(): clear battery_1 data\n\r");
     }
     if (CheckConnection(&Battery_2)) {
         BatteryInfoInit(&Battery_2);
         CheckFaulty(&Battery_2);
     } else {
         if (BatteryDataClear(&Battery_2) == HAL_OK)
-            printf("Battery_HwInit(): clear battery_2 data\n\r");
+            vprintf("Battery_HwInit(): clear battery_2 data\n\r");
     }
 
     if (Battery_1.status > kstsError && Battery_2.status > kstsError) {
@@ -919,18 +898,64 @@ void Thread_BatteryControl(void const *param)
 
 void Thread_BatteryMonitor(void const *param)
 {
-    while (1) {
+    int8_t acr_ofuf;
+    uint16_t adccode;
+    stBattery *battery = (stBattery *)param;
+    HAL_StatusTypeDef ret;
 
-        if (xSemaphoreTake(((stBattery*)param)->mutex_i2c, 5000) == pdTRUE) {
-            BatteryInfoUpdate(((stBattery*)param));
-            xSemaphoreGive(((stBattery*)param)->mutex_i2c);
-        } else {
-            printf("Thread_BatteryMonitor: i2c blocked, battery_%d\n\r", ((stBattery*)param)->index);
+    while (1) {
+        if (battery->index == 0 || battery->index > 2) {                            // index number is 1 or 2 for 2 batteries
+            vprintf("wrong battery index\n\r");
+            continue;
         }
-        xSemaphoreGive(((stBattery*)param)->sem_monitor);
+
+        if (!CheckConnection(battery)) {
+            if (battery->status != kstsNotExist) {
+                vprintf("bat_%d disconnect\n\r", battery->index);
+                BatteryInfoDeInit(battery);
+            }
+            continue;
+        } else if (battery->status == kstsNotExist) {                               // initial for new connection
+            vprintf("bat_% connect\n\r", battery->index);
+            BatteryInfoInit(battery);
+        }
+
+        adccode = *(battery->ntc_adc);
+        battery->temperature = -33.95 * log((float)adccode) + 269.94;
+
+        acr_ofuf = battery->gauge->acr_ofuf;
+
+        osMutexWait(battery->mutex_i2c, osWaitForever);
+        ret = Get_Gauge_Information(battery->gauge);
+        osMutexRelease(battery->mutex_i2c);
+        if (ret) {
+            ErrorHandler(battery, GAUGE_FAIL);
+            continue;
+        } else {
+            if (acr_ofuf != battery->gauge->acr_ofuf) {
+                vprintf("BatteryInfoUpdate(): bat_%d acr_ofuf is %d, level is %.0f\n\r", battery->index, battery->gauge->acr_ofuf, battery->gauge->level);
+            }
+            if (battery->status == kstsError && battery->err_code == 0x40) {    // self-recover from gauge communication fail, ONLY if error is GAUGE_FAIL
+                battery->status = kstsFloat;
+            }
+        }
+
+        // get current before voltage for impedance algorithm
+        if (battery->gauge->current - battery->current >= 2) {                  // current transient up
+            battery->i_transit_up = GetSecond();
+        } else if (battery->current - battery->gauge->current >= 2) {           // current transient down
+            battery->i_transit_down = GetSecond();
+        }
+        battery->current = battery->gauge->current;
+
+        // get voltage
+        battery->voltage = battery->gauge->voltage;
+
+        battery->level = battery->gauge->level >= 0 ? battery->gauge->level : 0;
+        RemainTimePredict(battery);
+        CheckFaulty(battery);
 
         vTaskDelay(64 / portTICK_PERIOD_MS);
     }
 }
-
 

@@ -174,6 +174,11 @@
 #define IDE_FLAG    0x00080000u
 
 /* Exported types ------------------------------------------------------------*/
+typedef union {
+    float tfloat;
+    int32_t tint32;
+} tuType32;
+
 typedef struct {
     uint32_t CmdNum     :8;  //7:0
     uint32_t Target     :8;  //15:8
@@ -191,13 +196,12 @@ typedef struct {
     tuCanId id;
     uint8_t dlc;
     uint8_t data[CMD_MAXLENGTH];
-    bool    used;
 } stCanPacket;
 
-typedef union {
-    float tfloat;
-    int32_t tint32;
-} tuType32;
+typedef struct {
+    CAN_RxHeaderTypeDef         header;
+    uint8_t                     data[8];
+} CANMsg_t;
 
 
 /* Exported constants --------------------------------------------------------*/
@@ -208,19 +212,16 @@ extern uint16_t dio_a_value;
 extern uint16_t dio_b_mask;
 extern uint16_t dio_b_value;
 extern uint8_t ccb_rst_times;
-extern bool CANListening;
 extern uint32_t msg_total_recv;
 extern uint32_t self_recover_cnt;
 extern uint32_t fetch_cnt;
-extern bool led_red_lock;
 extern uint32_t led_red_lock_time;
-extern bool led_white_lock;
 extern uint32_t led_white_lock_time;
 
 /* Exported functions ------------------------------------------------------- */
 void CAN_Config(void);
 void CAN_Listen(void);
-void MsgHandler(void);
+void MsgHandler(const void *);
 
 
 //#ifdef __cplusplus

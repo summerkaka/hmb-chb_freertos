@@ -42,6 +42,7 @@ typedef struct {
 	uint16_t                    const pin;
     GPIO_TypeDef *         		open_detect_port;
 	uint16_t                    const open_detect_pin;
+    int8_t                      err_code;
 } DioDevice_t;
 
 typedef struct {
@@ -57,11 +58,20 @@ typedef struct {
     eHeaterMode     mode;
     float   temperature;
     float   setpoint;
-    int8_t  kp;
-    int8_t  ki;
-    int8_t  kd;
+    int16_t  kp;
+    int16_t  ki;
+    int16_t  kd;
     int8_t  err_code;
 } Heater_t;
+
+typedef struct {
+    DioDevice_t     dio;
+    uint32_t        start_time;
+    uint32_t        stop_time;
+    uint32_t        origin;
+    uint8_t         sm_state;
+    int8_t          err_code;
+} PulseDevice_t;
 
 /* Exported constants --------------------------------------------------------*/
 
@@ -71,16 +81,15 @@ extern DioDevice_t Valve_1;
 extern DioDevice_t Valve_2;
 extern DioDevice_t MB_Pwr;
 extern DioDevice_t CCB_Pwr;
-extern DioDevice_t Pump_1;
-extern DioDevice_t Pump_2;
-extern DioDevice_t PValve;
+extern PulseDevice_t Pump_1;
+extern PulseDevice_t Pump_2;
+extern PulseDevice_t PValve;
 extern Heater_t Heater;
 	 
 /* Exported functions ------------------------------------------------------- */
-eBasicStatus DioSetTo(DioDevice_t *dev, uint8_t val);
-eBasicStatus PwmSetTo(PwmDevice_t *dev, float duty);
-eBasicStatus GetStatus(DioDevice_t load);
-bool        OpenDetect(DioDevice_t *load);
+void DioSetTo(DioDevice_t *dev, uint8_t val);
+void PwmSetTo(PwmDevice_t *dev, float duty);
+bool OpenDetect(DioDevice_t *load);
 
 #ifdef __cplusplus
 }

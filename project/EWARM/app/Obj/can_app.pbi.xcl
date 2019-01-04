@@ -1,4 +1,4 @@
-"C:\03_workspace\iar\hummingbird\hmb-chb_freertos\project\App\FieldCase.c"
+"C:\03_workspace\iar\hummingbird\hmb-chb_freertos\project\App\can_app.c"
 -std=c11
 -ferror-limit=0
 -fbracket-depth=512

@@ -78,7 +78,7 @@ EepromPageWrite(stEromOps *erom)
         id_addr = (EROM_I2CID | (erom->data_addr >> 8)) << 1;
 		ret = HAL_I2C_Mem_Write(p_hi2c, id_addr, data_addr, I2C_MEMADD_SIZE_8BIT, (uint8_t *)erom->pdata, length, erom->time_out);
 		if (ret != HAL_OK) {
-            printf("EepromPageWrite(): Write Fail! id_addr: 0x%02x, data_addr: 0x%02x\n\r", id_addr, data_addr);
+            vprintf("EepromPageWrite(): Write Fail! id_addr: 0x%02x, data_addr: 0x%02x\n\r", id_addr, data_addr);
 			break;
         }
 		erom->data_addr += length;
@@ -254,7 +254,7 @@ BatteryDataLoad(stBattery *bat)
     } else {
         bat->mode = buf[0] == 1 ? kCalifornia : kGlobal;
         if (buf[0] != 2 && buf[0] != 1)
-            printf("Battery_%d set to default mode\n\r", bat->index);
+            vprintf("Battery_%d set to default mode\n\r", bat->index);
     }
 
     // load aging flag

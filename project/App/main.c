@@ -63,7 +63,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "adc_app.h"
+#include "sdadc_app.h"
+#include "can_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -82,7 +84,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
+const float fw_version = 0.01;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -96,7 +98,13 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+// use this func to reduce stack usage in main()
+void welcome_print(void)
+{
+    printf("++++++++++++++++++++++++++++++++++++++++++++++\n\r");
+    printf("++++++++++++++ HummingBird CHB +++++++++++++++\n\r");
+    printf("++++++++++++++++++++++++++++++++++++++++++++++\n\r");   
+}
 /* USER CODE END 0 */
 
 /**
@@ -138,9 +146,11 @@ int main(void)
     MX_TIM18_Init();
     MX_USART1_UART_Init();
     /* USER CODE BEGIN 2 */
-    printf("+++++++++++++++++++++++++++++++++++++++++\n\r");
-    printf("+++++++++ HummingBird CHB +++++++++++++++\n\r");
-    printf("+++++++++++++++++++++++++++++++++++++++++\n\r");
+    ADC_Config();
+    Sdadc_Config();
+    CAN_Config();
+    CAN_Listen();
+    welcome_print();
     /* USER CODE END 2 */
 
     /* Call init function for freertos objects (in freertos.c) */
@@ -234,7 +244,7 @@ void Error_Handler(void)
 {
     /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
-
+    while (1) {}
     /* USER CODE END Error_Handler_Debug */
 }
 

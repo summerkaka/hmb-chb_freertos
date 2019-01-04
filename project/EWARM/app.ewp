@@ -125,7 +125,7 @@
                 </option>
                 <option>
                     <name>OGUseCmsisDspLib</name>
-                    <state>0</state>
+                    <state>1</state>
                 </option>
                 <option>
                     <name>GRuntimeLibThreads</name>
@@ -1055,6 +1055,9 @@
                 <name>$PROJ_DIR$\..\App\Battery.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\App\can_app.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\App\eeprom.c</name>
             </file>
             <file>
@@ -1178,7 +1181,7 @@
                 <name>$PROJ_DIR$\..\Inc\app.h</name>
             </file>
             <file>
-                <name>$PROJ_DIR$\..\Inc\battery.h</name>
+                <name>$PROJ_DIR$\..\Inc\Battery.h</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Inc\can_app.h</name>

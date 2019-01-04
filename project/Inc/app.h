@@ -16,8 +16,8 @@
 #include "stm32f3xx_hal.h"
 #include "main.h"
 #include "cmsis_os.h"
-//#include "arm_math.h"
-//#include "math.h"
+#include "arm_math.h"
+#include "math.h"
 #include "stdio.h"
 #include "string.h"
 #include "stdbool.h"
@@ -51,11 +51,18 @@
 #define APP_ADDRESS 0x08008000
 #define BL_ADDRESS  0x08000000
 
-#define vprintf(mutex, arg...)                                                  \
+// #define vprintf(mutex, arg...)                                                  \
+// do {                                                                            \
+//     osMutexWait(mutex, osWaitForever);                                          \
+//     printf(##arg);                                                              \
+//     osMutexRelease(mutex);                                                      \
+// } while (0)
+
+#define vprintf(arg...)                                                  \
 do {                                                                            \
-    xSemaphoreTake(mutex);                                                      \
+    osMutexWait(mutex_print, osWaitForever);                                          \
     printf(##arg);                                                              \
-    xSemaphoreGive(mutex);                                                      \
+    osMutexRelease(mutex_print);                                                      \
 } while (0)
 
 #define pr_debug(fmt,arg...) \
@@ -83,7 +90,7 @@ extern osThreadId tid_adaptor;
 
 extern SemaphoreHandle_t mutex_i2c0;
 extern SemaphoreHandle_t mutex_i2c1;
-extern SemaphoreHandle_t mutex_printf;
+extern SemaphoreHandle_t mutex_print;
 extern QueueHandle_t q_canmsg;
 
 

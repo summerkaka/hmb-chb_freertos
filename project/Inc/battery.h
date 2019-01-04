@@ -174,15 +174,9 @@ extern stBattery Battery_1, Battery_2;
 
 /* Exported functions ------------------------------------------------------- */
 void Battery_HwInit(void);
-void BatteryInfoUpdate(stBattery *battery);
-
-void BatterySupplyControl(stBattery *battery);
 void BatterySupplyCmdHandler(stBattery *bat, bool request);
-
-void BatteryChargeControl(stBattery *battery);
 void ChargeCmdhandler(stBattery *bat, bool request);
-
-void Thread_BatteryMonitor(void const *);
+void Thread_BatteryMonitor(const void *);
 void Thread_BatteryControl(void const *param);
 
 //#ifdef __cplusplus

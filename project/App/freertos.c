@@ -79,13 +79,20 @@
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
+osThreadId tid_vlist;
 osThreadId tid_fieldcase;
 osThreadId tid_adaptor;
 osThreadId tid_gc_cb;
-osThreadId tid_debug;
-osMutexId mutex_i2c0Handle;
-osMutexId mutex_i2c1Handle;
-osMutexId mutex_printfHandle;
+osThreadId tid_bat1_mon;
+osThreadId tid_bat2_mon;
+osThreadId tid_bat_ctrl;
+osThreadId tid_canmsg;
+
+osMutexId mutex_i2c0;
+osMutexId mutex_i2c1;
+osMutexId mutex_print;
+
+osMessageQId q_canmsg;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -151,6 +158,25 @@ __weak void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTas
 }
 /* USER CODE END 4 */
 
+/* USER CODE BEGIN 5 */
+__weak void vApplicationMallocFailedHook(void)
+{
+    /* vApplicationMallocFailedHook() will only be called if
+    configUSE_MALLOC_FAILED_HOOK is set to 1 in FreeRTOSConfig.h. It is a hook
+    function that will get called if a call to pvPortMalloc() fails.
+    pvPortMalloc() is called internally by the kernel whenever a task, queue,
+    timer or semaphore is created. It is also called by various parts of the
+    demo application. If heap_1.c or heap_2.c are used, then the size of the
+    heap available to pvPortMalloc() is defined by configTOTAL_HEAP_SIZE in
+    FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
+    to query the size of free heap space that remains (although it does not
+    provide information on how the remaining heap might be fragmented). */
+    TaskHandle_t tid = xTaskGetCurrentTaskHandle();
+    char *s = pcTaskGetName(tid);
+    vprintf("malloc fail, %s\n\r", s);
+}
+/* USER CODE END 5 */
+
 /**
   * @brief  FreeRTOS initialization
   * @param  None
@@ -164,16 +190,16 @@ void MX_FREERTOS_Init(void)
 
     /* Create the mutex(es) */
     /* definition and creation of mutex_i2c0 */
-    osMutexDef(mutex_i2c0);
-    mutex_i2c0Handle = osMutexCreate(osMutex(mutex_i2c0));
+    osMutexDef(i2c0);
+    mutex_i2c0 = osMutexCreate(osMutex(i2c0));
 
     /* definition and creation of mutex_i2c1 */
-    osMutexDef(mutex_i2c1);
-    mutex_i2c1Handle = osMutexCreate(osMutex(mutex_i2c1));
+    osMutexDef(i2c1);
+    mutex_i2c1 = osMutexCreate(osMutex(i2c1));
 
-    /* definition and creation of mutex_printf */
-    osMutexDef(mutex_printf);
-    mutex_printfHandle = osMutexCreate(osMutex(mutex_printf));
+    /* definition and creation of mutex_print */
+    osMutexDef(print);
+    mutex_print = osMutexCreate(osMutex(print));
 
     /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */
@@ -189,24 +215,34 @@ void MX_FREERTOS_Init(void)
 
     /* Create the thread(s) */
     /* definition and creation of defaultTask */
-    osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 700);
+    osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 200);
     defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
     /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
-    osThreadDef(fieldcase, Thread_FieldCase, osPriorityNormal, 0, 200);
+    osThreadDef(fieldcase, Thread_FieldCase, osPriorityNormal, 0, 120);
     tid_fieldcase = osThreadCreate(osThread(fieldcase), &tid_fieldcase);
     
-    osThreadDef(adaptor, Thread_Adaptor, osPriorityNormal, 0, 200);
+    osThreadDef(adaptor, Thread_Adaptor, osPriorityNormal, 0, 150);
     tid_adaptor = osThreadCreate(osThread(adaptor), NULL);
     
-    osThreadDef(gc_cb, Thread_Gc_CB_Pwr, osPriorityNormal, 0, 100);
+    osThreadDef(gc_cb, Thread_Gc_CB_Pwr, osPriorityNormal, 0, 150);
     tid_gc_cb = osThreadCreate(osThread(gc_cb), NULL);
+
+    osThreadDef(bat1_mon, Thread_BatteryMonitor, osPriorityNormal, 0, 280);
+    tid_bat1_mon = osThreadCreate(osThread(bat1_mon), &Battery_1);
+
+    osThreadDef(bat2_mon, Thread_BatteryMonitor, osPriorityNormal, 0, 280);
+    tid_bat2_mon = osThreadCreate(osThread(bat2_mon), &Battery_2);
+
+    osThreadDef(canmsg, MsgHandler, osPriorityAboveNormal, 0, 200);
+    tid_canmsg = osThreadCreate(osThread(canmsg), NULL);
     
     /* USER CODE END RTOS_THREADS */
 
     /* USER CODE BEGIN RTOS_QUEUES */
     /* add queues, ... */
+    q_canmsg = xQueueCreate(10, sizeof(CANMsg_t));
     /* USER CODE END RTOS_QUEUES */
 }
 
@@ -219,19 +255,49 @@ void MX_FREERTOS_Init(void)
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void const *argument)
 {
-
-    /* USER CODE BEGIN StartDefaultTask */
-    char pWriteBuffer[2048];
+    void *pWriteBuffer;
+    stBattery *bat = &Battery_1;
+    UBaseType_t tick;
     
+    /* USER CODE BEGIN StartDefaultTask */   
     while (1)
     {
-        osDelay(1000);
-        vTaskList((char *)&pWriteBuffer);
-        debug("task_name task_state priority stack tasK_num\n\r");
-        debug("%s\n", pWriteBuffer);
+        tick = xTaskGetTickCount();
+        vprintf("runtime: %d\n\r", tick);
+        pWriteBuffer = pvPortMalloc(500);
+        vTaskList(pWriteBuffer);
+        vprintf("task_name task_state priority stack task_num\n\r");        // use 'debug()' here would cause i2c comm fail, i2c_isr_busy set
+        vprintf("%s", (char *)pWriteBuffer);
+        vPortFree(pWriteBuffer);
+        bat = &Battery_1;
+        vprintf("==========================================================================================================================\n\r");
+        vprintf("|BATTERY| mode\t| status| used\t| level\t| V\t| I\t| T\t| cap.\t| remain| err\t| Iset\t| fcode\t| scale\t| ofuf\t|\n\r");
+        vprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
+        vprintf("|bat%d\t| %d\t| %d\t| %d\t| %.0f\t| %.2f\t| %.2f\t| %.2f\t| %.0f\t| %.0f\t| 0x%02x\t| %.2f\t| %d\t| %d\t| %d\t|\n\r", bat->index, bat->mode, bat->status, bat->mux_on, bat->gauge->level, bat->voltage, bat->current, bat->temperature, bat->capacity, bat->remain_time, bat->err_code, bat->charge_iset, bat->finish_code, bat->scale_flag, bat->gauge->acr_ofuf);
+        vprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
+        bat = &Battery_2;
+        vprintf("|bat%d\t| %d\t| %d\t| %d\t| %.0f\t| %.2f\t| %.2f\t| %.2f\t| %.0f\t| %.0f\t| 0x%02x\t| %.2f\t| %d\t| %d\t| %d\t|\n\r", bat->index, bat->mode, bat->status, bat->mux_on, bat->gauge->level, bat->voltage, bat->current, bat->temperature, bat->capacity, bat->remain_time, bat->err_code, bat->charge_iset, bat->finish_code, bat->scale_flag, bat->gauge->acr_ofuf);
+        vprintf("==========================================================================================================================\n\r");
+        vprintf("|HEATER\t| status| mode\t| T\t| sp\t| kp\t| ki\t| kd\t| duty\t|\n\r");
+        vprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
+        vprintf("|heater\t| %d\t| %d\t| %.3f\t| %.2f\t| %d\t| %d\t| %d\t| %.3f\t|\n\r", Heater.pwm.status, Heater.mode, Heater.temperature, Heater.setpoint, Heater.kp, Heater.ki, Heater.kd, Heater.pwm.duty);
+        vprintf("==========================================================================================================================\n\r");
+        vprintf("|Fdcase\t| v_pwr\t| i_pwr\t| cover\t| gc_sw\t| p_gas1| p_gas2| GcSts\t| Gcrq\t| lopwr\t|\n\r");
+        vprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
+        vprintf("|fdcase\t| %.2f\t| %.2f\t| %d\t| %d\t| %.1f\t| %.1f\t| %d\t| %d\t| %d\t|\n\r", FieldCase.v_syspwr, FieldCase.consumption, FieldCase.is_covered, FieldCase.is_switchon, FieldCase.gas_1_pressure, FieldCase.gas_2_pressure, gc_status, boot_request, lo_pwr_trigger);
+        vprintf("==========================================================================================================================\n\r");
+        vprintf("|Adapter| sts\t| v\t| connecttime\t| disconntime\t|\n\r");
+        vprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
+        vprintf("|Adapter| %d\t| %.2f\t| %8d\t| %8d\t|\n\r", Adaptor.status, Adaptor.voltage, Adaptor.connect_time, Adaptor.disconnect_time);
+        vprintf("==========================================================================================================================\n\r");
+        vprintf("\n\n\r");
+
+        osDelay(5000);
     }
     /* USER CODE END StartDefaultTask */
 }
+
+
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */

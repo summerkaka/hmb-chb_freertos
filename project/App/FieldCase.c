@@ -35,7 +35,7 @@ stFieldCase FieldCase = {
     .v_syspwr = 0,
     .is_covered = false,
     .is_switchon = false,
-//    .bat_used = NULL,
+    .bat_used = NULL,
     .switchoff_time = 0,
     .switchon_time = 0,
     .lid_on_time = 0,
@@ -55,8 +55,6 @@ bool                lo_pwr_trigger  = false;     // to prevent battery rebound
 eBootMode           boot_request    = kGcOff;
 eBootMode           gc_status       = kGcOff;
 
-static uint32_t     tick            = 0;
-
 
 /* Private function prototypes -----------------------------------------------*/
 
@@ -65,9 +63,10 @@ static uint32_t     tick            = 0;
 
 void Thread_FieldCase(void const *tid)
 {
-
-    float adc_code = 0, consumption = 0;
-    uint32_t water_mark = 0;
+//    float adc_code = 0, consumption = 0;
+//    uint32_t water_mark = 0;
+    float adc_code;
+    float consumption;
     
     while (1)
     {
@@ -115,17 +114,17 @@ void Thread_FieldCase(void const *tid)
             if (need_dual_bat == true) {
                 need_dual_bat = false;
                 high_cur_time = 0;
-                printf("FieldCaseInofUpdate(): adaptor connected, dualbat mode off\n\r");
+                vprintf("FieldCaseInofUpdate(): adaptor connected, dualbat mode off\n\r");
             }
         } else if (FieldCase.consumption >= DUAL_CUR) {                             // turn on dual_bat mode as soon as detecting high consumption
             if (need_dual_bat == false && back_cur_detect == false) {
                 need_dual_bat = true;
                 dual_start_time = GetSecond();
-                printf("FieldCaseInofUpdate(): consumption is %.3f, dualbat mode on\n\r", FieldCase.consumption);
+                vprintf("FieldCaseInofUpdate(): consumption is %.3f, dualbat mode on\n\r", FieldCase.consumption);
             } else if (need_dual_bat == true) {
                 if (((Battery_1.current > 0.1 && Battery_1.mux_on == true) || (Battery_2.current > 0.1 && Battery_2.mux_on == true)) &&
                         GetSecond() - dual_start_time > 3) {
-                    printf("FieldCaseInfoUpdate(): back current detect, dualbat mode off\n\r");
+                    vprintf("FieldCaseInfoUpdate(): back current detect, dualbat mode off\n\r");
                     need_dual_bat = false;
                     back_cur_detect = true;
                     back_cur_time = GetMinute();
@@ -137,14 +136,14 @@ void Thread_FieldCase(void const *tid)
                 high_cur_time = 0;
                 if (need_dual_bat == true) {
                     need_dual_bat = false;
-                    printf("FieldCaseInfoUpdate(): consumption is %.3f, dualbat mode off\n\r", FieldCase.consumption);
+                    vprintf("FieldCaseInfoUpdate(): consumption is %.3f, dualbat mode off\n\r", FieldCase.consumption);
                 }
             }
         }
 
         if (back_cur_detect == true && GetMinute() - back_cur_time > 5) {
             back_cur_detect = false;
-            printf("FieldCaseInfoUpdate(): clear back_cur_detect\n\r");
+            vprintf("FieldCaseInfoUpdate(): clear back_cur_detect\n\r");
         }
 
         adc_code = sd1_gain_coe * (sdadc1_code[SDADC1_CHNL_GAS1] + 32767);
@@ -164,9 +163,9 @@ void Thread_FieldCase(void const *tid)
         else
             FieldCase.bat_used = NULL;
         
-        tick = xTaskGetTickCount();
-        water_mark = uxTaskGetStackHighWaterMark(*(osThreadId *)tid);                         // return how many words(4 bytes) free in stack
-        debug("FieldCase: tick %d, watermark %d\n\r", tick, water_mark);
+//        tick = xTaskGetTickCount();
+//        water_mark = uxTaskGetStackHighWaterMark(*(osThreadId *)tid);                         // return how many words(4 bytes) free in stack
+//        vprintf("FieldCase: tick %d, watermark %d\n\r", tick, water_mark);
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }   // end while (1)
 }
@@ -181,7 +180,7 @@ static void TurnOnGc(void)
     DioSetTo(&MB_Pwr, 1);
     DioSetTo(&CCB_Pwr, 1);
     gc_status = kGcRun;
-    printf("TurnOnGc(): turn on GC\n\r");
+    vprintf("TurnOnGc(): turn on GC\n\r");
 }
 
 /**
@@ -194,7 +193,7 @@ static void FastBootGc(void)
     DioSetTo(&MB_Pwr, 1);
     DioSetTo(&CCB_Pwr, 0);
     gc_status = kGcFastBoot;
-    printf("FastBootGc(): \n\r");
+    vprintf("FastBootGc(): \n\r");
 }
 
 /**
@@ -210,7 +209,7 @@ static void TurnOffGc(void)
     DioSetTo(&Valve_1, 0);
     DioSetTo(&Valve_2, 0);
     gc_status = kGcOff;
-    printf("TurnOffGc(): turn off GC\n\r");
+    vprintf("TurnOffGc(): turn off GC\n\r");
 }
 
 void Thread_Gc_CB_Pwr(void const *param)
@@ -272,7 +271,7 @@ void Thread_Gc_CB_Pwr(void const *param)
                     if (cb_drop_time == 0) {
                         cb_drop_time = GetSecond();
                     } else if (GetSecond() - cb_drop_time >= 7) {
-                        printf("CB_PwrCntl(): low cb power, turn off cb\n\r");
+                        vprintf("CB_PwrCntl(): low cb power, turn off cb\n\r");
                         HAL_GPIO_WritePin(BAT_SW_MCU_GPIO_Port, BAT_SW_MCU_Pin, GPIO_PIN_RESET);
                     }
                 } else {
@@ -282,12 +281,12 @@ void Thread_Gc_CB_Pwr(void const *param)
                 if (FieldCase.is_covered == false) {                                // lid is open
                     second = Adaptor.disconnect_time > FieldCase.switchoff_time ? Adaptor.disconnect_time : FieldCase.switchoff_time;
                     if (GetSecond() - second >= SW_OFF_TIME) {
-                        printf("CB_PwrCntl(): SW_OFF_TIME timeout, turn off cb\n\r");
+                        vprintf("CB_PwrCntl(): SW_OFF_TIME timeout, turn off cb\n\r");
                         HAL_GPIO_WritePin(BAT_SW_MCU_GPIO_Port, BAT_SW_MCU_Pin, GPIO_PIN_RESET);
                     }
                 } else {                                                            // lid is closed
                     if (GetSecond() - FieldCase.lid_off_time >= COVER_OFF_TIME) {
-                        printf("CB_PwrCntl(): COVER_OFF_TIME timeout, turn off cb\n\r");
+                        vprintf("CB_PwrCntl(): COVER_OFF_TIME timeout, turn off cb\n\r");
                         HAL_GPIO_WritePin(BAT_SW_MCU_GPIO_Port, BAT_SW_MCU_Pin, GPIO_PIN_RESET);
                     }
                 }
@@ -301,19 +300,19 @@ void Thread_Gc_CB_Pwr(void const *param)
 void Self_Check(void)
 {
     if (OpenDetect(&MB_Pwr))
-        printf("MBFAN not connected\n\r");
+        vprintf("MBFAN not connected\n\r");
     if (OpenDetect(&Valve_1))
-        printf("Valve_1 not connected\n\r");
+        vprintf("Valve_1 not connected\n\r");
     if (OpenDetect(&Valve_2))
-        printf("Valve_2 not connected\n\r");
+        vprintf("Valve_2 not connected\n\r");
     if (OpenDetect(&Fan))
-        printf("GCFAN not connected\n\r");
+        vprintf("GCFAN not connected\n\r");
 //    if (CheckFaulty(&Pump_1))
-//        printf("Pump_1 not connected\n\r");
+//        vprintf("Pump_1 not connected\n\r");
 //    if (CheckFaulty(&Pump_2))
-//        printf("Pump_2 not connected\n\r");
+//        vprintf("Pump_2 not connected\n\r");
 //    if (CheckFaulty(&PValve))
-//        printf("PValve not connected\n\r");
+//        vprintf("PValve not connected\n\r");
 }
 
 
