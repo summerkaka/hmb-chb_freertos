@@ -122,7 +122,7 @@ BatteryDescriptorLoad(stBattery *bat, uint8_t index, void *data)
     erom.data_addr = (bat->index - 1) * BAT2_OFFSET + IndexTable[index][1];
     erom.len = IndexTable[index][2];
     erom.pdata = (uint8_t *)data;
-    erom.time_out = 15;
+    erom.time_out = 100;
     return EepromRead(&erom);
 }
 
@@ -249,11 +249,11 @@ BatteryDataLoad(stBattery *bat)
     }
 
     // load charge mode
-    if (ret = BatteryDescriptorLoad(bat, BAT_MODE, buf)) {
+    if (ret = BatteryDescriptorLoad(bat, BAT_MODE, &i)) {
         goto end;
     } else {
-        bat->mode = buf[0] == 1 ? kCalifornia : kGlobal;
-        if (buf[0] != 2 && buf[0] != 1)
+        bat->mode = i == 1 ? kCalifornia : kGlobal;
+        if (i != 2 && i != 1)
             vprintf("Battery_%d set to default mode\n\r", bat->index);
     }
 

@@ -243,7 +243,7 @@ void Thread_Gc_CB_Pwr(void const *param)
             } else if (FieldCase.is_covered == false && is_covered == true) {
                 is_covered = false;
                 cover_off_time = GetSecond();
-            } else if (GetSecond() - cover_off_time >= 300) {
+            } else if (FieldCase.is_covered == true && GetSecond() - cover_off_time >= 300) {
                 TurnOffGc();
             }
         } else if (gc_status == kGcFastBoot) {

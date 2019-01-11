@@ -60,26 +60,14 @@
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-/* USER CODE BEGIN Variables */
-
-/* USER CODE END Variables */
 osThreadId defaultTaskHandle;
-osThreadId tid_vlist;
+osThreadId tid_debug;
 osThreadId tid_fieldcase;
 osThreadId tid_adaptor;
 osThreadId tid_gc_cb;
@@ -94,13 +82,14 @@ osMutexId mutex_print;
 
 osMessageQId q_canmsg;
 
+TimerHandle_t tmr_pump_on = NULL;
+TimerHandle_t tmr_pump_off = NULL;
+TimerHandle_t tmr_pvalve_on = NULL;
+TimerHandle_t tmr_pvalve_off = NULL;
+
 /* Private function prototypes -----------------------------------------------*/
-/* USER CODE BEGIN FunctionPrototypes */
-
-/* USER CODE END FunctionPrototypes */
-
 void StartDefaultTask(void const *argument);
-
+void DebugTask(void const *argument);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* Hook prototypes */
@@ -120,9 +109,7 @@ __weak unsigned long getRunTimeCounterValue(void)
 {
     return 0;
 }
-/* USER CODE END 1 */
 
-/* USER CODE BEGIN 2 */
 __weak void vApplicationIdleHook(void)
 {
     /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
@@ -135,9 +122,7 @@ __weak void vApplicationIdleHook(void)
     function, because it is the responsibility of the idle task to clean up
     memory allocated by the kernel to any task that has since been deleted. */
 }
-/* USER CODE END 2 */
 
-/* USER CODE BEGIN 3 */
 __weak void vApplicationTickHook(void)
 {
     /* This function will be called by each tick interrupt if
@@ -146,9 +131,7 @@ __weak void vApplicationTickHook(void)
     code must not attempt to block, and only the interrupt safe FreeRTOS API
     functions can be used (those that end in FromISR()). */
 }
-/* USER CODE END 3 */
 
-/* USER CODE BEGIN 4 */
 __weak void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName)
 {
     /* Run time stack overflow checking is performed if
@@ -156,9 +139,7 @@ __weak void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTas
     called if a stack overflow is detected. */
     printf("stack overflow: %s\n\r", pcTaskName);
 }
-/* USER CODE END 4 */
 
-/* USER CODE BEGIN 5 */
 __weak void vApplicationMallocFailedHook(void)
 {
     /* vApplicationMallocFailedHook() will only be called if
@@ -175,7 +156,8 @@ __weak void vApplicationMallocFailedHook(void)
     char *s = pcTaskGetName(tid);
     vprintf("malloc fail, %s\n\r", s);
 }
-/* USER CODE END 5 */
+
+
 
 /**
   * @brief  FreeRTOS initialization
@@ -184,10 +166,6 @@ __weak void vApplicationMallocFailedHook(void)
   */
 void MX_FREERTOS_Init(void)
 {
-    /* USER CODE BEGIN Init */
-
-    /* USER CODE END Init */
-
     /* Create the mutex(es) */
     /* definition and creation of mutex_i2c0 */
     osMutexDef(i2c0);
@@ -201,25 +179,32 @@ void MX_FREERTOS_Init(void)
     osMutexDef(print);
     mutex_print = osMutexCreate(osMutex(print));
 
-    /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */
-    /* USER CODE END RTOS_MUTEX */
 
-    /* USER CODE BEGIN RTOS_SEMAPHORES */
     /* add semaphores, ... */
-    /* USER CODE END RTOS_SEMAPHORES */
 
-    /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
-    /* USER CODE END RTOS_TIMERS */
 
     /* Create the thread(s) */
     /* definition and creation of defaultTask */
     osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 200);
     defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
-    /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
+    
+    /* add queues, ... */
+    q_canmsg = xQueueCreate(10, sizeof(CANMsg_t));
+}
+
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used 
+  * @retval None
+  */
+void StartDefaultTask(void const *argument)
+{
+    BatteryHwInit();
+    
     osThreadDef(fieldcase, Thread_FieldCase, osPriorityNormal, 0, 120);
     tid_fieldcase = osThreadCreate(osThread(fieldcase), &tid_fieldcase);
     
@@ -235,25 +220,19 @@ void MX_FREERTOS_Init(void)
     osThreadDef(bat2_mon, Thread_BatteryMonitor, osPriorityNormal, 0, 280);
     tid_bat2_mon = osThreadCreate(osThread(bat2_mon), &Battery_2);
 
-    osThreadDef(canmsg, MsgHandler, osPriorityAboveNormal, 0, 200);
+    osThreadDef(canmsg, MsgHandler, osPriorityAboveNormal, 0, 160);
     tid_canmsg = osThreadCreate(osThread(canmsg), NULL);
-    
-    /* USER CODE END RTOS_THREADS */
 
-    /* USER CODE BEGIN RTOS_QUEUES */
-    /* add queues, ... */
-    q_canmsg = xQueueCreate(10, sizeof(CANMsg_t));
-    /* USER CODE END RTOS_QUEUES */
+    osThreadDef(batctrl, Thread_BatteryControl, osPriorityNormal, 0, 200);
+    tid_bat_ctrl = osThreadCreate(osThread(batctrl), NULL);
+    
+    osThreadDef(debug, DebugTask, osPriorityNormal, 0, 200);
+    tid_debug = osThreadCreate(osThread(debug), NULL);
+        
+    vTaskDelete(NULL);
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used 
-  * @retval None
-  */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const *argument)
+void DebugTask(void const *argument)
 {
     void *pWriteBuffer;
     stBattery *bat = &Battery_1;
@@ -284,7 +263,7 @@ void StartDefaultTask(void const *argument)
         vprintf("==========================================================================================================================\n\r");
         vprintf("|Fdcase\t| v_pwr\t| i_pwr\t| cover\t| gc_sw\t| p_gas1| p_gas2| GcSts\t| Gcrq\t| lopwr\t|\n\r");
         vprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
-        vprintf("|fdcase\t| %.2f\t| %.2f\t| %d\t| %d\t| %.1f\t| %.1f\t| %d\t| %d\t| %d\t|\n\r", FieldCase.v_syspwr, FieldCase.consumption, FieldCase.is_covered, FieldCase.is_switchon, FieldCase.gas_1_pressure, FieldCase.gas_2_pressure, gc_status, boot_request, lo_pwr_trigger);
+        vprintf("|fdcase\t| %.2f\t| %.2f\t| %d\t| %d\t| %.1f\t| %.1f\t| %d\t| %d\t|\n\r", FieldCase.v_syspwr, FieldCase.consumption, FieldCase.is_covered, FieldCase.is_switchon, FieldCase.gas_1_pressure, FieldCase.gas_2_pressure, gc_status, lo_pwr_trigger);
         vprintf("==========================================================================================================================\n\r");
         vprintf("|Adapter| sts\t| v\t| connecttime\t| disconntime\t|\n\r");
         vprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
@@ -294,14 +273,11 @@ void StartDefaultTask(void const *argument)
 
         osDelay(5000);
     }
-    /* USER CODE END StartDefaultTask */
 }
 
 
 
 /* Private application code --------------------------------------------------*/
-/* USER CODE BEGIN Application */
 
-/* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

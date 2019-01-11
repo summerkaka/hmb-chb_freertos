@@ -56,21 +56,19 @@ typedef struct {
 typedef struct {
     PwmDevice_t     pwm;
     eHeaterMode     mode;
-    float   temperature;
-    float   setpoint;
-    int16_t  kp;
-    int16_t  ki;
-    int16_t  kd;
-    int8_t  err_code;
+    float           temperature;
+    float           setpoint;
+    int16_t         kp;
+    int16_t         ki;
+    int16_t         kd;
+    int8_t          err_code;
 } Heater_t;
 
 typedef struct {
     DioDevice_t     dio;
-    uint32_t        start_time;
-    uint32_t        stop_time;
-    uint32_t        origin;
-    uint8_t         sm_state;
     int8_t          err_code;
+    TimerHandle_t * timer_on;
+    TimerHandle_t * timer_off;
 } PulseDevice_t;
 
 /* Exported constants --------------------------------------------------------*/
@@ -90,6 +88,8 @@ extern Heater_t Heater;
 void DioSetTo(DioDevice_t *dev, uint8_t val);
 void PwmSetTo(PwmDevice_t *dev, float duty);
 bool OpenDetect(DioDevice_t *load);
+void timer_pulse_on_callback(TimerHandle_t id);
+void timer_pulse_off_callback(TimerHandle_t id);
 
 #ifdef __cplusplus
 }

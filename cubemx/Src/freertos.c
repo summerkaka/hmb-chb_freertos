@@ -96,7 +96,6 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 void configureTimerForRunTimeStats(void);
 unsigned long getRunTimeCounterValue(void);
 void vApplicationIdleHook(void);
-void vApplicationTickHook(void);
 void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName);
 void vApplicationMallocFailedHook(void);
 
@@ -127,17 +126,6 @@ __weak void vApplicationIdleHook( void )
    memory allocated by the kernel to any task that has since been deleted. */
 }
 /* USER CODE END 2 */
-
-/* USER CODE BEGIN 3 */
-__weak void vApplicationTickHook( void )
-{
-   /* This function will be called by each tick interrupt if
-   configUSE_TICK_HOOK is set to 1 in FreeRTOSConfig.h. User code can be
-   added here, but the tick hook is called from an interrupt context, so
-   code must not attempt to block, and only the interrupt safe FreeRTOS API
-   functions can be used (those that end in FromISR()). */
-}
-/* USER CODE END 3 */
 
 /* USER CODE BEGIN 4 */
 __weak void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName)

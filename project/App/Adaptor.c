@@ -41,7 +41,7 @@ Thread_Adaptor(const void *param)
 //    uint32_t water_mark = 0;
     while (1) 
     {
-        Adaptor.voltage = (float)ADCvalue[ADC_ADAPTOR] * 0.003742;             // adc / 100 / 0.0015;
+        Adaptor.voltage = (float)(ADCvalue[ADC_ADAPTOR] - ADCvalue[ADC_OFFSET1]) * 0.003742;             // adc / 100 / 0.0015;
         
         if (Adaptor.status == kAdaptorNotExist && Adaptor.voltage > ADAPT_CONNN_TH) {
             Adaptor.status = kAdaptorSupplying;

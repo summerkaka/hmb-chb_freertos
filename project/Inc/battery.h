@@ -173,7 +173,7 @@ typedef struct StBattery stBattery;
 extern stBattery Battery_1, Battery_2;
 
 /* Exported functions ------------------------------------------------------- */
-void Battery_HwInit(void);
+void BatteryHwInit(void);
 void BatterySupplyCmdHandler(stBattery *bat, bool request);
 void ChargeCmdhandler(stBattery *bat, bool request);
 void Thread_BatteryMonitor(const void *);

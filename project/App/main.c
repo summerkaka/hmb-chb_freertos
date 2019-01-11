@@ -62,50 +62,34 @@
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
 #include "adc_app.h"
 #include "sdadc_app.h"
 #include "can_app.h"
-/* USER CODE END Includes */
+#include "Battery.h"
+
 
 /* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 const float fw_version = 0.01;
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
-/* USER CODE BEGIN PFP */
-
-/* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
 // use this func to reduce stack usage in main()
 void welcome_print(void)
 {
-    printf("++++++++++++++++++++++++++++++++++++++++++++++\n\r");
-    printf("++++++++++++++ HummingBird CHB +++++++++++++++\n\r");
-    printf("++++++++++++++++++++++++++++++++++++++++++++++\n\r");   
+    printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\r");
+    printf("+++++++++++++++++ HummingBird CHB v%.2f+++++++++++++++++++++++\n\r", fw_version);
+    printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\r");   
 }
-/* USER CODE END 0 */
+
 
 /**
   * @brief  The application entry point.
@@ -113,25 +97,13 @@ void welcome_print(void)
   */
 int main(void)
 {
-    /* USER CODE BEGIN 1 */
-
-    /* USER CODE END 1 */
-
     /* MCU Configuration--------------------------------------------------------*/
 
     /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
     HAL_Init();
 
-    /* USER CODE BEGIN Init */
-
-    /* USER CODE END Init */
-
     /* Configure the system clock */
     SystemClock_Config();
-
-    /* USER CODE BEGIN SysInit */
-
-    /* USER CODE END SysInit */
 
     /* Initialize all configured peripherals */
     MX_GPIO_Init();
@@ -145,13 +117,13 @@ int main(void)
     MX_TIM3_Init();
     MX_TIM18_Init();
     MX_USART1_UART_Init();
-    /* USER CODE BEGIN 2 */
+    
+    HAL_TIM_Base_Start_IT(&htim18);
     ADC_Config();
     Sdadc_Config();
     CAN_Config();
     CAN_Listen();
     welcome_print();
-    /* USER CODE END 2 */
 
     /* Call init function for freertos objects (in freertos.c) */
     MX_FREERTOS_Init();
@@ -162,14 +134,10 @@ int main(void)
     /* We should never get here as control is now taken by the scheduler */
 
     /* Infinite loop */
-    /* USER CODE BEGIN WHILE */
     while (1)
     {
-        /* USER CODE END WHILE */
 
-        /* USER CODE BEGIN 3 */
     }
-    /* USER CODE END 3 */
 }
 
 /**
@@ -223,9 +191,7 @@ void SystemClock_Config(void)
     HAL_PWREx_EnableSDADC(PWR_SDADC_ANALOG1);
 }
 
-/* USER CODE BEGIN 4 */
 
-/* USER CODE END 4 */
 
 /**
   * @brief  Period elapsed callback in non blocking mode

@@ -91,7 +91,7 @@ LTC2943_Write_mAh(stGauge *gauge,float level)
     } else {
         gauge->acr_ofuf = 0;
     }
-    printf("LTC2943_Write_mAh(): write level: %f, wdata: %d, acr_ofuf: %d\n\r", level, wdata, gauge->acr_ofuf);
+    vprintf("LTC2943_Write_mAh(): write level: %f, wdata: %d, acr_ofuf: %d\n\r", level, wdata, gauge->acr_ofuf);
 
     return Write_LTC2943_Word(gauge,LTC2943_ACCUM_CHARGE_MSB_REG, wdata);
 }
@@ -171,7 +171,7 @@ Get_Gauge_Information(stGauge *gauge)
     if (ret != HAL_OK)
         return ret;
     if (gauge->status & LTC2943_ACR_OVF_UDF) {
-        printf("Get_Gauge_Information(): acr_OVF_UDF is detect, sts_reg is 0x%02x, acr reading is %d, origin level is %.0f\n\r", gauge->status, data_word, gauge->level);
+        vprintf("Get_Gauge_Information(): acr_OVF_UDF is detect, sts_reg is 0x%02x, acr reading is %d, origin level is %.0f\n\r", gauge->status, data_word, gauge->level);
         if (data_word > 0xffe0) {       // under flow
             gauge->acr_ofuf--;
         } else if (data_word < 0x0020) { // over flow

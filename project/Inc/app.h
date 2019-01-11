@@ -58,11 +58,11 @@
 //     osMutexRelease(mutex);                                                      \
 // } while (0)
 
-#define vprintf(arg...)                                                  \
+#define vprintf(arg...)                                                         \
 do {                                                                            \
-    osMutexWait(mutex_print, osWaitForever);                                          \
+    osMutexWait(mutex_print, osWaitForever);                                    \
     printf(##arg);                                                              \
-    osMutexRelease(mutex_print);                                                      \
+    osMutexRelease(mutex_print);                                                \
 } while (0)
 
 #define pr_debug(fmt,arg...) \
@@ -76,8 +76,6 @@ do {                                                                            
 } while (0)
 	
 #define fdebug(format, ...) fprintf(stderr, format, ##__VA_ARGS__)
-
-//#define BEEP_EN
 
 /* Exported types ------------------------------------------------------------*/
 
@@ -93,6 +91,10 @@ extern SemaphoreHandle_t mutex_i2c1;
 extern SemaphoreHandle_t mutex_print;
 extern QueueHandle_t q_canmsg;
 
+extern TimerHandle_t tmr_pump_on;
+extern TimerHandle_t tmr_pump_off;
+extern TimerHandle_t tmr_pvalve_on;
+extern TimerHandle_t tmr_pvalve_off;
 
 /* Exported variables ------------------------------------------------------- */
 __no_init uint32_t update_request @0x20000000;

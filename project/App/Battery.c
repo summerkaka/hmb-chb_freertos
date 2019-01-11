@@ -474,7 +474,9 @@ SetChargeCurrent(stBattery *bat, float amps)
         bat->charge_iset = amps < 0 ? 0 : amps;
         value = (uint8_t)(bat->charge_iset * 10.24);                            // amps / 5A *20e3OHM / 100e3OHM * 256digits
     }
+    osMutexWait(bat->mutex_i2c, osWaitForever);
     AD5241_Write((I2C_HandleTypeDef *)bat->hi2c, value);
+    osMutexRelease(bat->mutex_i2c);
 }
 
 static void
@@ -492,7 +494,7 @@ BatteryInfoDeInit(stBattery *battery)
     battery->ng = 0.8;
     battery->level = 0;
     battery->capacity = BAT_MAX_MAH;
-    battery->scale_flag = 0;
+    battery->scale_flag = FIRSTCHARGE;
     battery->v_ringbuf.read_index = 0;
     battery->v_ringbuf.write_index = 0;
     battery->v_ringbuf.clear = false;
@@ -539,9 +541,7 @@ BatteryInfoInit(stBattery *battery)
     HAL_StatusTypeDef ret = HAL_ERROR;
     BatteryInfoDeInit(battery);
     battery->status = kstsFloat;
-    if (battery->mode == kCalifornia) {
-        battery->scale_flag |= FIRSTCHARGE;
-    }
+
     osMutexWait(battery->mutex_i2c, osWaitForever);
     ret = Init_LTC2943(battery->gauge);
     osMutexRelease(battery->mutex_i2c);
@@ -550,7 +550,7 @@ BatteryInfoInit(stBattery *battery)
         return ret;
     }
 
-    HAL_Delay(64);                                                              // wait for one conv after init
+    vTaskDelay(64 / portTICK_PERIOD_MS);                                                              // wait for one conv after init
 
     ret = HAL_ERROR;
     for (i = 0; i < 3 && ret != HAL_OK; i++) {
@@ -790,16 +790,8 @@ BatterySupplyControl(stBattery *bat)
 }
 
 void
-Battery_HwInit(void)
+BatteryHwInit(void)
 {
-    // BatteryDataClear(&Battery_1);
-    // BatteryDataClear(&Battery_2);
-    // ChargeOff(&Battery_1);
-    // ChargeOff(&Battery_2);
-
-    Battery_1.mode = kGlobal;
-    Battery_2.mode = kGlobal;
-    
     Battery_1.mutex_i2c = mutex_i2c0;
     Battery_2.mutex_i2c = mutex_i2c1;
 

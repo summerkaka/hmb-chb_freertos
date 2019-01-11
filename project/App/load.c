@@ -14,7 +14,7 @@
 /* Private macro -------------------------------------------------------------*/
 
 /* Private typedef -----------------------------------------------------------*/
-typedef eBasicStatus (*pfn)(float);
+
 /* Private function prototypes -----------------------------------------------*/
 
 /* Private variables ---------------------------------------------------------*/
@@ -47,16 +47,22 @@ PulseDevice_t Pump_1 = {
 	.dio.status = kLoadOff,
     .dio.port = PUMP_EN_GPIO_Port,
     .dio.pin = PUMP_EN_Pin,
+    .timer_on = &tmr_pump_on,
+    .timer_off = &tmr_pump_off
 };
 PulseDevice_t Pump_2 = {
 	.dio.status = kLoadOff,
     .dio.port = PUMP_EN_GPIO_Port,
     .dio.pin = PUMP_EN_Pin,
+    .timer_on = &tmr_pump_on,
+    .timer_off = &tmr_pump_off
 };
 PulseDevice_t PValve = {
     .dio.status = kLoadOff,
     .dio.port = PVALVE_EN_GPIO_Port,
     .dio.pin = PVALVE_EN_Pin,
+    .timer_on = &tmr_pvalve_on,
+    .timer_off = &tmr_pvalve_off
 };
 Heater_t Heater = {
     .pwm.status = kLoadOff,
@@ -124,28 +130,34 @@ bool OpenDetect(DioDevice_t *load)
     return false;
 }
 
-void PulseRun(PulseDevice_t *pulse)
+//void PulseRun(PulseDevice_t *pulse)
+//{
+//    if (pulse->sm_state == 0) {
+//        return;
+//    } else if (pulse->sm_state == 1) {
+//        if (xTaskGetTickCount() - pulse->origin >= pulse->start_time) {
+//            pulse->sm_state = 2;
+//            DioSetTo(&pulse->dio, 1);
+//            printf("PulseRun(): enter sm_2\n\r");
+//        }
+//    } else if (pulse->sm_state == 2) {
+//        if (xTaskGetTickCount() - pulse->origin >= pulse->stop_time) {
+//            pulse->sm_state = 0;
+//            DioSetTo(&pulse->dio, 0);
+//            printf("PulseRun(): enter sm_0\n\r");
+//        }
+//    }
+//}
+
+void timer_pulse_on_callback(TimerHandle_t id)
 {
-    if (pulse->sm_state == 0) {
-        return;
-    } else if (pulse->sm_state == 1) {
-        if (xTaskGetTickCount() - pulse->origin >= pulse->start_time) {
-            pulse->sm_state = 2;
-            DioSetTo(&pulse->dio, 1);
-            printf("PulseRun(): enter sm_2\n\r");
-        }
-    } else if (pulse->sm_state == 2) {
-        if (xTaskGetTickCount() - pulse->origin >= pulse->stop_time) {
-            pulse->sm_state = 0;
-            DioSetTo(&pulse->dio, 0);
-            printf("PulseRun(): enter sm_0\n\r");
-        }
-    }
+    DioSetTo((DioDevice_t *)id, 1);
 }
 
-
-
-
+void timer_pulse_off_callback(TimerHandle_t id)
+{
+    DioSetTo((DioDevice_t *)id, 0);
+}
 
 
 

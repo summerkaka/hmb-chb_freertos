@@ -735,12 +735,14 @@ PulseWriteHandler(const stCanPacket *pcmd)
     case 0x00:
         time = GetWordL(&pcmd->data[5]);
         time &= 0x00ffffff;
-        pulseout->start_time = time;
+        // pulseout->start_time = time;
+        *pulseout->timer_on = xTimerCreate("", time, pdFALSE, (void *)&pulseout->dio, timer_pulse_on_callback);
         break;
     case 0x01:
         time = GetWordL(&pcmd->data[5]);
         time &= 0x00ffffff;
-        pulseout->stop_time = time;
+        // pulseout->stop_time = time;
+        *pulseout->timer_off = xTimerCreate("", time, pdFALSE, (void *)&pulseout->dio, timer_pulse_off_callback);
         break;
     default : break;
     }
@@ -749,25 +751,37 @@ PulseWriteHandler(const stCanPacket *pcmd)
 static void
 StartRunHandler(void)
 {
-//    Pump_1.StartRun();
-//    PValve.StartRun();
-    Pump_1.sm_state = 1;
-    Pump_1.origin = xTaskGetTickCount();
+    // Pump_1.StartRun();
+    // PValve.StartRun();
+    // Pump_1.sm_state = 1;
+    // Pump_1.origin = xTaskGetTickCount();
 
-    PValve.sm_state = 1;
-    PValve.origin = xTaskGetTickCount();
+    // PValve.sm_state = 1;
+    // PValve.origin = xTaskGetTickCount();
+    xTimerStart(tmr_pump_off, 0);
+    xTimerStart(tmr_pump_off, 0);
+    xTimerStart(tmr_pvalve_on, 0);
+    xTimerStart(tmr_pvalve_off, 0);
 }
 
 static void
 StopRunHandler(void)
 {
-//    Pump_1.StopRun();
-//    PValve.StopRun();
-    Pump_1.sm_state = 0;
-    DioSetTo(&Pump_1.dio, 0);
-    
-    PValve.sm_state = 0;
-    DioSetTo(&PValve.dio, 0);
+    // Pump_1.StopRun();
+    // PValve.StopRun();
+    // Pump_1.sm_state = 0;
+    // DioSetTo(&Pump_1.dio, 0);
+    // PValve.sm_state = 0;
+    // DioSetTo(&PValve.dio, 0);
+    xTimerStop(tmr_pump_on, 100 / portTICK_PERIOD_MS);
+    xTimerStop(tmr_pump_off, 100 / portTICK_PERIOD_MS);
+    xTimerStop(tmr_pvalve_on, 100 / portTICK_PERIOD_MS);
+    xTimerStop(tmr_pvalve_off, 100 / portTICK_PERIOD_MS);
+
+    xTimerDelete(tmr_pump_on, 100 / portTICK_PERIOD_MS);
+    xTimerDelete(tmr_pump_off, 100 / portTICK_PERIOD_MS);
+    xTimerDelete(tmr_pvalve_on, 100 / portTICK_PERIOD_MS);
+    xTimerDelete(tmr_pvalve_off, 100 / portTICK_PERIOD_MS);
 }
 
 static void
