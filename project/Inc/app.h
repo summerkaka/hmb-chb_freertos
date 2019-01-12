@@ -47,7 +47,7 @@
 
 
 /* Exported macro ------------------------------------------------------------*/
-#define DEBUG       0
+#define DEBUG       1
 #define APP_ADDRESS 0x08008000
 #define BL_ADDRESS  0x08000000
 
@@ -89,6 +89,7 @@ extern osThreadId tid_adaptor;
 extern SemaphoreHandle_t mutex_i2c0;
 extern SemaphoreHandle_t mutex_i2c1;
 extern SemaphoreHandle_t mutex_print;
+extern SemaphoreHandle_t sem_heater;
 extern QueueHandle_t q_canmsg;
 
 extern TimerHandle_t tmr_pump_on;

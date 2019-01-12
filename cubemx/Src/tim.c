@@ -98,7 +98,7 @@ void MX_TIM18_Init(void)
   htim18.Instance = TIM18;
   htim18.Init.Prescaler = 7200;
   htim18.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim18.Init.Period = 10000;
+  htim18.Init.Period = 200;
   htim18.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim18) != HAL_OK)
   {

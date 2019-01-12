@@ -56,12 +56,27 @@ typedef struct {
 typedef struct {
     PwmDevice_t     pwm;
     eHeaterMode     mode;
+    float           duty;
     float           temperature;
     float           setpoint;
     int16_t         kp;
     int16_t         ki;
     int16_t         kd;
+    int16_t         *adc_code;
+    bool            off_and_lock;
     int8_t          err_code;
+    float oldactual;
+    float olderror;
+    float error;
+    float derror;
+    float abserror;
+    float actual;
+    bool  use_pid;
+    float integral;
+    float modeled_integral;
+    float integral_error;
+    float iterm;
+    float power;
 } Heater_t;
 
 typedef struct {
@@ -90,6 +105,7 @@ void PwmSetTo(PwmDevice_t *dev, float duty);
 bool OpenDetect(DioDevice_t *load);
 void timer_pulse_on_callback(TimerHandle_t id);
 void timer_pulse_off_callback(TimerHandle_t id);
+void Thread_Heater(const void *);
 
 #ifdef __cplusplus
 }

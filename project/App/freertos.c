@@ -75,10 +75,13 @@ osThreadId tid_bat1_mon;
 osThreadId tid_bat2_mon;
 osThreadId tid_bat_ctrl;
 osThreadId tid_canmsg;
+osThreadId tid_heater;
 
 osMutexId mutex_i2c0;
 osMutexId mutex_i2c1;
 osMutexId mutex_print;
+
+SemaphoreHandle_t sem_heater;
 
 osMessageQId q_canmsg;
 
@@ -182,7 +185,7 @@ void MX_FREERTOS_Init(void)
     /* add mutexes, ... */
 
     /* add semaphores, ... */
-
+    sem_heater = xSemaphoreCreateBinary();
     /* start timers, add new ones, ... */
 
     /* Create the thread(s) */
@@ -220,14 +223,19 @@ void StartDefaultTask(void const *argument)
     osThreadDef(bat2_mon, Thread_BatteryMonitor, osPriorityNormal, 0, 280);
     tid_bat2_mon = osThreadCreate(osThread(bat2_mon), &Battery_2);
 
-    osThreadDef(canmsg, MsgHandler, osPriorityAboveNormal, 0, 160);
+    osThreadDef(canmsg, MsgHandler, osPriorityHigh, 0, 160);
     tid_canmsg = osThreadCreate(osThread(canmsg), NULL);
 
     osThreadDef(batctrl, Thread_BatteryControl, osPriorityNormal, 0, 200);
     tid_bat_ctrl = osThreadCreate(osThread(batctrl), NULL);
+
+    osThreadDef(heater, Thread_Heater, osPriorityAboveNormal, 0, 200);
+    tid_heater = osThreadCreate(osThread(heater), &Heater);
     
     osThreadDef(debug, DebugTask, osPriorityNormal, 0, 200);
     tid_debug = osThreadCreate(osThread(debug), NULL);
+    
+    HAL_TIM_Base_Start_IT(&htim18);
         
     vTaskDelete(NULL);
 }

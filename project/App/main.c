@@ -112,13 +112,12 @@ int main(void)
     MX_CAN_Init();
     MX_I2C1_Init();
     MX_I2C2_Init();
-    // MX_IWDG_Init();
+//    MX_IWDG_Init();
     MX_SDADC1_Init();
     MX_TIM3_Init();
     MX_TIM18_Init();
     MX_USART1_UART_Init();
     
-    HAL_TIM_Base_Start_IT(&htim18);
     ADC_Config();
     Sdadc_Config();
     CAN_Config();

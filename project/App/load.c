@@ -12,6 +12,15 @@
 #include "app.h"
 
 /* Private macro -------------------------------------------------------------*/
+#define MIN_INTEGRAL    0
+#define TEMPER_UNIT     1
+#define MAX_POWER       10000
+#define INTEGRAL_SCALE  1
+#define CONTROL_BAND    5
+#define KPRESET         2
+#define MAX_INTEGRAL    MAX_POWER*INTEGRAL_SCALE*TEMPER_UNIT
+#define MIN_POWER       0
+
 
 /* Private typedef -----------------------------------------------------------*/
 
@@ -70,6 +79,7 @@ Heater_t Heater = {
     .pwm.period = 10000,
     .pwm.tim = &htim3,
     .pwm.tim_channel = TIM_CHANNEL_2,
+    .adc_code = &sdadc1_code[SDADC1_CHNL_PT100]
 };
 
 
@@ -130,25 +140,6 @@ bool OpenDetect(DioDevice_t *load)
     return false;
 }
 
-//void PulseRun(PulseDevice_t *pulse)
-//{
-//    if (pulse->sm_state == 0) {
-//        return;
-//    } else if (pulse->sm_state == 1) {
-//        if (xTaskGetTickCount() - pulse->origin >= pulse->start_time) {
-//            pulse->sm_state = 2;
-//            DioSetTo(&pulse->dio, 1);
-//            printf("PulseRun(): enter sm_2\n\r");
-//        }
-//    } else if (pulse->sm_state == 2) {
-//        if (xTaskGetTickCount() - pulse->origin >= pulse->stop_time) {
-//            pulse->sm_state = 0;
-//            DioSetTo(&pulse->dio, 0);
-//            printf("PulseRun(): enter sm_0\n\r");
-//        }
-//    }
-//}
-
 void timer_pulse_on_callback(TimerHandle_t id)
 {
     DioSetTo((DioDevice_t *)id, 1);
@@ -159,7 +150,87 @@ void timer_pulse_off_callback(TimerHandle_t id)
     DioSetTo((DioDevice_t *)id, 0);
 }
 
+void Thread_Heater(const void *arg)
+{
+    float code;
+    float vadc_new;
+    Heater_t *heater = (Heater_t *)arg;
+    TickType_t tick;
+    
+    while (1) 
+    {
+        xSemaphoreTake(sem_heater, portMAX_DELAY);
+        tick = xTaskGetTickCount();
+        vprintf("tick: %d\n\r", tick);
+        code = sd1_gain_coe * (*heater->adc_code + 32767);
+        vadc_new = code / 65535 * 3.3;                                        // for debug
 
+        heater->temperature = 20.712 * vadc_new * vadc_new + 124.36 * vadc_new - 233.07;
+        
+        if (heater->temperature <= -100) {
+            heater->err_code = -1;
+        }
+                
+        if (heater->off_and_lock == 1) {
+            if (heater->mode != kHeaterOff || heater->pwm.status != kLoadOff) {
+                heater->mode = kHeaterOff;
+                PwmSetTo(&heater->pwm, 0);
+            }
+        } else if (heater->err_code == -1) {
+            heater->mode = kHeaterOff;
+            PwmSetTo(&heater->pwm, 0);
+        } else if (heater->mode == kHeaterOff && heater->pwm.status != kLoadOff) {                 // off mode
+            PwmSetTo(&heater->pwm, 0);
+            heater->integral = 0;
+            heater->setpoint = 0;
+        } else if (heater->mode == kHeaterFixPWM && heater->pwm.status == kLoadOff) {              // fix-pwm mode
+            PwmSetTo(&heater->pwm, heater->duty);
+        } else if (heater->mode == kHeaterPID) {                                            // pid mode
+            heater->oldactual = heater->actual;
+            heater->actual = heater->temperature > 0 ? heater->temperature : -heater->temperature;
+            //actual = floor(actual);
+            heater->olderror = heater->setpoint - heater->oldactual;
+            heater->error = heater->setpoint - heater->actual;
+            heater->derror = heater->error - heater->olderror;
+            heater->abserror = heater->error > 0 ? heater->error : -heater->error;
+            heater->power = 0;
+
+            if (!heater->use_pid && heater->abserror <= CONTROL_BAND) {
+                heater->use_pid = true;
+                heater->integral = heater->modeled_integral;
+            } else if (heater->abserror > CONTROL_BAND && heater->use_pid) {
+                heater->use_pid = false;
+            }
+
+            if (heater->use_pid) {
+                heater->integral_error = heater->ki * heater->error;
+                heater->integral += heater->integral_error;
+
+                if (heater->integral > MAX_INTEGRAL)
+                    heater->integral = MAX_INTEGRAL;
+                if (heater->integral < MIN_INTEGRAL)
+                    heater->integral = MIN_INTEGRAL;
+
+                heater->iterm = heater->integral / INTEGRAL_SCALE;
+                heater->power = (heater->kp * heater->error + heater->iterm + heater->kd * heater->derror)/TEMPER_UNIT;
+                //printf("error: %.2f, integral: %.2f, power: %.2f\n\r", error, integral, power);
+                if (heater->power > MAX_POWER)
+                    heater->power = MAX_POWER;
+                if (heater->power < MIN_POWER)
+                    heater->power = MIN_POWER;
+
+                if (heater->integral < 0)
+                    heater->integral = 0;
+            } else {
+                if (heater->error > 0)
+                    heater->power = MAX_POWER;
+                else
+                    heater->power = MIN_POWER;
+            }
+            PwmSetTo(&heater->pwm, heater->power/MAX_POWER);
+        }
+    }
+}
 
 
 

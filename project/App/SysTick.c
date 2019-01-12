@@ -17,7 +17,7 @@
 /* Private typedef -----------------------------------------------------------*/
 
 /* Private variables ---------------------------------------------------------*/
-static bool tim18_tick = false;
+static uint8_t tim18_tick = false;
 static uint32_t seconds_tick = 0;
 
 
@@ -45,29 +45,27 @@ uint32_t GetSecond(void)
   */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
+    BaseType_t higher_woken;
     if (htim->Instance == TIM18) {
-        tim18_tick = true;
-        seconds_tick++;
+        tim18_tick++;
+        if (tim18_tick >= 50) {
+            seconds_tick++;
+            tim18_tick = 0;
+            sd1_gain_coe = 54612.5F / (sdadc1_code[SDADC1_CHNL_REF] + 32767);
+            #if DEBUG == 0
+                HAL_IWDG_Refresh(&hiwdg);
+            #endif
+        }
+        xSemaphoreGiveFromISR(sem_heater, &higher_woken);
+        if (higher_woken == pdTRUE)
+            portYIELD_FROM_ISR(pdTRUE);
+            
     }
     if (htim->Instance == TIM17) {
         HAL_IncTick();
     }
 }
 
-void Seconds_Handler(void)
-{
-    if (tim18_tick == true) {
-
-        tim18_tick = false;
-        
-#if DEBUG == 0
-        HAL_IWDG_Refresh(&hiwdg);
-#endif
-
-        sd1_gain_coe = 54612.5F / (sdadc1_code[SDADC1_CHNL_REF] + 32767);
-
-    }
-}
 
 
 
