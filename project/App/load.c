@@ -155,13 +155,13 @@ void Thread_Heater(const void *arg)
     float code;
     float vadc_new;
     Heater_t *heater = (Heater_t *)arg;
-    TickType_t tick;
+//    TickType_t tick;
     
     while (1) 
     {
         xSemaphoreTake(sem_heater, portMAX_DELAY);
-        tick = xTaskGetTickCount();
-        vprintf("tick: %d\n\r", tick);
+//        tick = xTaskGetTickCount();
+//        vprintf("tick: %d\n\r", tick);
         code = sd1_gain_coe * (*heater->adc_code + 32767);
         vadc_new = code / 65535 * 3.3;                                        // for debug
 

@@ -11,27 +11,36 @@
             <file>$PROJ_DIR$\..\App\Adaptor.c</file>
             <file>$PROJ_DIR$\..\App\AD5241.c</file>
             <file>$PROJ_DIR$\..\App\eeprom.c</file>
+            <file>$PROJ_DIR$\..\Inc\load.h</file>
             <file>$PROJ_DIR$\..\App\LTC2943.c</file>
-            <file>$PROJ_DIR$\..\App\FieldCase.c</file>
+            <file>$PROJ_DIR$\..\Inc\FreeRTOSConfig.h</file>
+            <file>$PROJ_DIR$\..\Inc\sdadc_app.h</file>
+            <file>$PROJ_DIR$\..\App\main.c</file>
             <file>$PROJ_DIR$\..\App\load.c</file>
             <file>$PROJ_DIR$\..\App\sdadc_app.c</file>
-            <file>$PROJ_DIR$\..\Bsp\can.h</file>
-            <file>$PROJ_DIR$\..\App\freertos.c</file>
-            <file>$PROJ_DIR$\..\App\main.c</file>
             <file>$PROJ_DIR$\..\App\SysTick.c</file>
-            <file>$PROJ_DIR$\..\Bsp\iwdg.c</file>
-            <file>$PROJ_DIR$\..\Bsp\i2c.c</file>
-            <file>$PROJ_DIR$\..\Bsp\i2c.h</file>
-            <file>$PROJ_DIR$\..\Bsp\gpio.h</file>
-            <file>$PROJ_DIR$\..\Bsp\dma.h</file>
             <file>$PROJ_DIR$\..\Bsp\adc.c</file>
-            <file>$PROJ_DIR$\..\Bsp\gpio.c</file>
-            <file>$PROJ_DIR$\..\Bsp\dma.c</file>
-            <file>$PROJ_DIR$\..\Bsp\iwdg.h</file>
-            <file>$PROJ_DIR$\..\Bsp\main.h</file>
+            <file>$PROJ_DIR$\..\App\FieldCase.c</file>
+            <file>$PROJ_DIR$\..\Inc\SysTick.h</file>
+            <file>$PROJ_DIR$\..\Inc\LTC2943.h</file>
+            <file>$PROJ_DIR$\..\App\uart_printf.c</file>
+            <file>$PROJ_DIR$\..\App\freertos.c</file>
+            <file>$PROJ_DIR$\..\Inc\FieldCase.h</file>
             <file>$PROJ_DIR$\..\Bsp\can.c</file>
             <file>$PROJ_DIR$\..\Bsp\adc.h</file>
-            <file>$PROJ_DIR$\..\App\uart_printf.c</file>
+            <file>$PROJ_DIR$\..\Inc\Battery.h</file>
+            <file>$PROJ_DIR$\..\Inc\can_app.h</file>
+            <file>$PROJ_DIR$\..\Inc\eeprom.h</file>
+            <file>$PROJ_DIR$\..\Bsp\can.h</file>
+            <file>$PROJ_DIR$\..\Bsp\dma.c</file>
+            <file>$PROJ_DIR$\..\Bsp\dma.h</file>
+            <file>$PROJ_DIR$\..\Bsp\gpio.c</file>
+            <file>$PROJ_DIR$\..\Bsp\gpio.h</file>
+            <file>$PROJ_DIR$\..\Bsp\i2c.c</file>
+            <file>$PROJ_DIR$\..\Bsp\i2c.h</file>
+            <file>$PROJ_DIR$\..\Bsp\iwdg.c</file>
+            <file>$PROJ_DIR$\..\Bsp\iwdg.h</file>
+            <file>$PROJ_DIR$\..\Bsp\main.h</file>
             <file>$PROJ_DIR$\..\Bsp\sdadc.c</file>
             <file>$PROJ_DIR$\..\Bsp\sdadc.h</file>
             <file>$PROJ_DIR$\..\Bsp\stm32f3xx_hal_conf.h</file>
@@ -47,15 +56,6 @@
             <file>$PROJ_DIR$\..\Inc\Adaptor.h</file>
             <file>$PROJ_DIR$\..\Inc\adc_app.h</file>
             <file>$PROJ_DIR$\..\Inc\app.h</file>
-            <file>$PROJ_DIR$\..\Inc\Battery.h</file>
-            <file>$PROJ_DIR$\..\Inc\can_app.h</file>
-            <file>$PROJ_DIR$\..\Inc\eeprom.h</file>
-            <file>$PROJ_DIR$\..\Inc\FieldCase.h</file>
-            <file>$PROJ_DIR$\..\Inc\FreeRTOSConfig.h</file>
-            <file>$PROJ_DIR$\..\Inc\load.h</file>
-            <file>$PROJ_DIR$\..\Inc\LTC2943.h</file>
-            <file>$PROJ_DIR$\..\Inc\sdadc_app.h</file>
-            <file>$PROJ_DIR$\..\Inc\SysTick.h</file>
         </outputs>
     </configuration>
 </project>

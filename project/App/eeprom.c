@@ -188,7 +188,7 @@ BatteryDataClear(stBattery *bat)
 
     xSemaphoreTake(bat->mutex_i2c, portMAX_DELAY);
     
-    for (i = 0; i < TABLE_ROW; i++) {
+    for (i = 0; i < TABLE_ROW - 1; i++) {
         if (ret = BatteryDescriptorSave(bat, i, &data))
             goto end;
     }
@@ -208,6 +208,15 @@ BatteryDataLoad(stBattery *bat)
     tuType32 tu_value;
 
     xSemaphoreTake(bat->mutex_i2c, portMAX_DELAY);
+    
+    // load charge mode
+    if (ret = BatteryDescriptorLoad(bat, BAT_MODE, &i)) {
+        goto end;
+    } else {
+        bat->mode = i == 1 ? kCalifornia : kGlobal;
+        if (i != 2 && i != 1)
+            vprintf("Battery_%d set to default mode\n\r", bat->index);
+    }
 
     if (ret = BatteryDescriptorLoad(bat, INITIAL_FLAG, &init_flag))
         goto end;
@@ -246,15 +255,6 @@ BatteryDataLoad(stBattery *bat)
         for (j = 0; j < RL_WID; j++) {
             bat->red_line[i][j] = buf[i*10 + j];
         }
-    }
-
-    // load charge mode
-    if (ret = BatteryDescriptorLoad(bat, BAT_MODE, &i)) {
-        goto end;
-    } else {
-        bat->mode = i == 1 ? kCalifornia : kGlobal;
-        if (i != 2 && i != 1)
-            vprintf("Battery_%d set to default mode\n\r", bat->index);
     }
 
     // load aging flag
