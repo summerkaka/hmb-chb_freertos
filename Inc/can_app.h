@@ -211,6 +211,7 @@ typedef struct {
 
 /* Exported variables ------------------------------------------------------- */
 extern bool CANListening;
+extern bool CANMonitoring;
 extern uint32_t msg_total_recv;
 extern uint32_t can_intr_cnt;
 extern bool led_red_lock;
@@ -222,6 +223,8 @@ extern uint32_t led_white_lock_time;
 void CAN_Config(void);
 void CAN_Listen(void);
 void Thread_CANComm(void *);
+void CAN_MonitorSwitch(uint8_t *p);
+void CAN_ManualSend(uint8_t *);
 
 
 //#ifdef __cplusplus

@@ -23,9 +23,9 @@
 
 if ($debugfile -eq "")
 {
-& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.general.xcl" --backend -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.driver.xcl" 
+& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.general.xcl" --backend -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.driver.xcl" 
 }
 else
 {
-& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.general.xcl" --debug_file=$debugfile --backend -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.driver.xcl" 
+& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.general.xcl" --debug_file=$debugfile --backend -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.driver.xcl" 
 }

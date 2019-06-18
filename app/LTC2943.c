@@ -81,7 +81,7 @@ Init_LTC2943(stGauge *const gauge, osMutexId mutex)
     HAL_StatusTypeDef ret;
 
     if (osMutexWait(mutex, 1000) != osOK)
-        return HAL_ERROR;
+        return HAL_BUSY;
 
     ret =  Write_LTC2943_Byte(gauge,LTC2943_CONTROL_REG, LTC2943_AUTOMATIC_MODE | LTC2943_PRESCALAR_M_1024 |LTC2943_DISABLE_ALCC_PIN );
     osMutexRelease(mutex);
@@ -96,7 +96,7 @@ LTC2943_Write_mAh(stGauge *gauge,float level, osMutexId mutex)
     uint16_t wdata = (uint16_t)(level / 1.41666667f);  // inv of code_to_mAh
 
     if (osMutexWait(mutex, 1000) != osOK)
-        return HAL_ERROR;
+        return HAL_BUSY;
 
     if (level < 0 && wdata != 0) {
         gauge->acr_ofuf = -1;
@@ -169,7 +169,7 @@ Get_Gauge_Information(stGauge *gauge, osMutexId mutex)
     HAL_StatusTypeDef ret = HAL_OK;
 
     if (osMutexWait(mutex, 1000) != osOK)
-        return HAL_ERROR;
+        return HAL_BUSY;
 
     //read Status register
     ret = Read_LTC2943_Byte(gauge, LTC2943_STATUS_REG, &data_byte);

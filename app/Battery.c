@@ -140,6 +140,8 @@ static void ChargeOn(stBattery *battery, eChargeMode mode)
   */
 static void ChargeOff(stBattery *battery, uint8_t option)
 {
+    HAL_StatusTypeDef ret;
+
     HAL_GPIO_WritePin(battery->charge_port, battery->charge_pin, GPIO_PIN_RESET);
     SetChargeCurrent(battery, 0);
 
@@ -170,7 +172,12 @@ static void ChargeOff(stBattery *battery, uint8_t option)
         if (battery->level > battery->capacity) {
             battery->level = battery->capacity;
         }
-        if (LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex)) {         // uplimit of max electron quantity
+
+        do {
+            ret = LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex);
+        } while (ret == HAL_BUSY);
+
+        if (ret == HAL_ERROR) {         // uplimit of max electron quantity
             battery->status = kstsError;
             battery->err_code = GAUGE_FAIL;
         }
@@ -228,6 +235,8 @@ static void CurveLearning(stBattery *bat)
   */
 static void Calibrate(stBattery *bat, eCheckMode mode)
 {
+    HAL_StatusTypeDef ret;
+
     // level and capacity rescale
     if (mode == kReachTop) {
         if (bat->scale_flag & 0x03 == 0x03)
@@ -243,7 +252,10 @@ static void Calibrate(stBattery *bat, eCheckMode mode)
         bat->level = bat->gauge->level = 0;
     }
     bat->gauge->acr_ofuf = 0;
-    if (LTC2943_Write_mAh(bat->gauge, bat->level, bat->iic_mutex)) {
+    do {
+        ret = LTC2943_Write_mAh(bat->gauge, bat->level, bat->iic_mutex);
+    } while (ret == HAL_BUSY);
+    if (ret == HAL_ERROR) {
         ErrorHandler(bat, GAUGE_FAIL);
         return;
     }
@@ -555,7 +567,7 @@ static void BatteryInfoDeInit(stBattery *battery)
 static HAL_StatusTypeDef BatteryInfoInit(stBattery *battery)
 {
     int8_t i = 0, j = 0;
-    HAL_StatusTypeDef ret = HAL_ERROR;
+    HAL_StatusTypeDef ret;
 
     if (battery->index == 0 || battery->index > 2)
         return HAL_ERROR;
@@ -563,7 +575,11 @@ static HAL_StatusTypeDef BatteryInfoInit(stBattery *battery)
     BatteryInfoDeInit(battery);
     battery->status = kstsFloat;
 
-    if ((ret = Init_LTC2943(battery->gauge, battery->iic_mutex)) != HAL_OK) {
+    do {
+        ret = Init_LTC2943(battery->gauge, battery->iic_mutex);
+    } while (ret == HAL_BUSY);
+
+    if (ret == HAL_ERROR) {
         ErrorHandler(battery, GAUGE_FAIL);
         return ret;
     }
@@ -584,13 +600,19 @@ static HAL_StatusTypeDef BatteryInfoInit(stBattery *battery)
 
     xprintf("BatteryInfoInit(): load battery_%d data from eeprom...\n\r", battery->index);
     if (BatteryDataLoad(battery) == HAL_OK) {                                   // information is stored in EEPROM and load successfully
+
         xprintf("ok\n\r");
+
         if (battery->level > 24000 || battery->level < -2000) {
             xprintf("BatteryInfoInit(): load bat_%d level %.0f is abnormal\n\r", battery->index, battery->level);
             goto INITIALIZE_LEVEL;
         }
-        ret = LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex);
-        if (ret != HAL_OK) {
+
+        do {
+            ret = Init_LTC2943(battery->gauge, battery->iic_mutex);
+        } while (ret == HAL_BUSY);
+
+        if (ret == HAL_ERROR) {
             battery->status = kstsError;
             battery->err_code = GAUGE_FAIL;
         }
@@ -618,8 +640,10 @@ INITIALIZE_LEVEL:                                                               
     }
     xprintf("BatteryInfoInit(): INITIALIZE_LEVEL bat_%d level to %.0f with voltage: %.2f, ofuf: %d\n\r", battery->index, battery->level, battery->voltage, battery->gauge->acr_ofuf);
     battery->gauge->acr_ofuf = 0;
-    ret = LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex);
-    if (ret != HAL_OK) {
+    do {
+        ret = Init_LTC2943(battery->gauge, battery->iic_mutex);
+    } while (ret == HAL_BUSY);
+    if (ret == HAL_ERROR) {
         battery->err_code = GAUGE_FAIL;
         battery->status = kstsError;
     }
@@ -799,7 +823,7 @@ void Thread_BatteryInfoUpdate(stBattery *battery)
     uint32_t current_second;
     uint16_t adccode;
     int8_t acr_ofuf;
-
+    HAL_StatusTypeDef ret;
     uint32_t tick_volt_sample = 0;  // tick to sample volt every 1s
 
     xprintf("thread_bat%dinfo start\n\r", battery->index);
@@ -831,7 +855,12 @@ void Thread_BatteryInfoUpdate(stBattery *battery)
         vTaskDelay(VSAMPLE_INTV/portTICK_PERIOD_MS);
 
         acr_ofuf = battery->gauge->acr_ofuf;
-        if (Get_Gauge_Information(battery->gauge, battery->iic_mutex)) {
+
+        do {
+            ret = Get_Gauge_Information(battery->gauge, battery->iic_mutex);
+        } while (ret == HAL_BUSY);
+
+        if (ret == HAL_ERROR) {
             ErrorHandler(battery, GAUGE_FAIL);
             continue;
         } else {

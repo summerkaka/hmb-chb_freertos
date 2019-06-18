@@ -22,6 +22,7 @@ uint8_t                         TxData[8];
 uint32_t                        TxMailBox;
 CANMsg_t                        rx_msg;
 bool                            CANListening = false;
+bool                            CANMonitoring = false;
 uint32_t                        msg_total_recv = 0;
 uint32_t                        self_recover_cnt = 0;
 uint32_t                        can_intr_cnt = 0;
@@ -994,7 +995,9 @@ DebugWrHandler(const stCanPacket *pcmd)
 static void
 CmdHandler(const stCanPacket *pcmd)
 {
-	switch (pcmd->id.field.CmdNum) {
+	if (pcmd->id.field.Target != LOCAL_ID && pcmd->id.field.Target != CANID_BROADCAST)
+        return;
+    switch (pcmd->id.field.CmdNum) {
 	case CMD_READ_AIO:
 		AIOReadHandler(pcmd);
         break;
@@ -1056,21 +1059,22 @@ void CAN_Config(void)
     uint32_t id = LOCAL_ID << 8;
     uint32_t mask = 0xff << 8;
 
+    if (HAL_CAN_Stop(&hcan) != HAL_OK)
+        Error_Handler();
+    
     sFilterConfig.FilterBank = 0;
     sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
     sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
     sFilterConfig.FilterIdHigh = ((id << 3) & 0xFFFF0000) >> 16;
     sFilterConfig.FilterIdLow = ((id << 3) | CAN_ID_EXT | CAN_RTR_DATA) & 0xFFFF;
-    sFilterConfig.FilterMaskIdHigh = ((mask << 3) & 0xFFFF0000) >> 16;;
-    sFilterConfig.FilterMaskIdLow = ((mask << 3) | CAN_ID_EXT | CAN_RTR_DATA) & 0xFFFF;;
+    sFilterConfig.FilterMaskIdHigh = ((mask << 3) & 0xFFFF0000) >> 16;
+    sFilterConfig.FilterMaskIdLow = ((mask << 3) | CAN_ID_EXT | CAN_RTR_DATA) & 0xFFFF;
     sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
     sFilterConfig.FilterActivation = ENABLE;
     sFilterConfig.SlaveStartFilterBank = 14;
 
     if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK)
-    {
         Error_Handler();
-    }
 
     id = CANID_BROADCAST << 8;
     sFilterConfig.FilterBank = 2;
@@ -1078,19 +1082,17 @@ void CAN_Config(void)
     sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
     sFilterConfig.FilterIdHigh = ((id << 3) & 0xFFFF0000) >> 16;
     sFilterConfig.FilterIdLow = ((id << 3) | CAN_ID_EXT | CAN_RTR_DATA) & 0xFFFF;
-    sFilterConfig.FilterMaskIdHigh = ((mask << 3) & 0xFFFF0000) >> 16;;
-    sFilterConfig.FilterMaskIdLow = ((mask << 3) | CAN_ID_EXT | CAN_RTR_DATA) & 0xFFFF;;
+    sFilterConfig.FilterMaskIdHigh = ((mask << 3) & 0xFFFF0000) >> 16;
+    sFilterConfig.FilterMaskIdLow = ((mask << 3) | CAN_ID_EXT | CAN_RTR_DATA) & 0xFFFF;
     sFilterConfig.FilterFIFOAssignment = 0;
     sFilterConfig.FilterActivation = ENABLE;
     sFilterConfig.SlaveStartFilterBank = 14;
 
     if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK)
-    {
         Error_Handler();
-    }
 
-    if (HAL_CAN_Start(&hcan) != HAL_OK)
-    {
+
+    if (HAL_CAN_Start(&hcan) != HAL_OK) {
         HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
         Error_Handler();
     }
@@ -1101,6 +1103,48 @@ void CAN_Config(void)
     TxHeader.IDE = CAN_ID_EXT;
     TxHeader.DLC = 2;
     TxHeader.TransmitGlobalTime = DISABLE;
+}
+
+void CAN_DeconfigFilter(void)
+{
+    CAN_FilterTypeDef  sFilterConfig;
+
+    if (HAL_CAN_Stop(&hcan) != HAL_OK)
+        Error_Handler();
+
+    sFilterConfig.FilterBank = 0;
+    sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+    sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+    sFilterConfig.FilterIdHigh = 0;
+    sFilterConfig.FilterIdLow = 0;
+    sFilterConfig.FilterMaskIdHigh = 0;
+    sFilterConfig.FilterMaskIdLow = 0;
+    sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+    sFilterConfig.FilterActivation = ENABLE;
+    sFilterConfig.SlaveStartFilterBank = 14;
+
+    if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK)
+        Error_Handler();
+
+    sFilterConfig.FilterBank = 2;
+    sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+    sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+    sFilterConfig.FilterIdHigh = 0;
+    sFilterConfig.FilterIdLow = 0;
+    sFilterConfig.FilterMaskIdHigh = 0;
+    sFilterConfig.FilterMaskIdLow = 0;
+    sFilterConfig.FilterFIFOAssignment = 0;
+    sFilterConfig.FilterActivation = ENABLE;
+    sFilterConfig.SlaveStartFilterBank = 14;
+
+    if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK)
+        Error_Handler();
+
+    if (HAL_CAN_Start(&hcan) != HAL_OK) {
+        HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
+        Error_Handler();
+    }
+    CAN_Listen();
 }
 
 void CAN_Listen(void)
@@ -1139,6 +1183,8 @@ void Thread_CANComm(void *p)
 {
     CANMsg_t msg;
     stCanPacket pkt;
+    char buf[32] = {'c','a','n',':',' ',};
+    int8_t i = 0, j = 0;
 
     xprintf("thread_can start\n\r");
 
@@ -1148,6 +1194,21 @@ void Thread_CANComm(void *p)
             pkt.dlc = msg.header.DLC;
             memcpy(pkt.data, msg.data, 8);
             CmdHandler((const stCanPacket *)&pkt);
+            if (CANMonitoring == ON) {
+                i = 5;
+                sprintf(&buf[i], "%08x", pkt.id.all);
+                i+= 8;
+                buf[i++] = ' ';
+                sprintf(&buf[i++], "%01u", pkt.dlc);
+                buf[i++] = ' ';
+                for (j=0; j<pkt.dlc; j++) {
+                    sprintf(&buf[i], "%02x", pkt.data[j]);
+                    i += 2;
+                    buf[i++] = ' ';
+                }
+                xprintf("%s\n\r", buf);
+                memset(&buf[5], 0, 27);
+            }
         }
 
         if (CANListening == false)
@@ -1175,3 +1236,22 @@ void Thread_CANComm(void *p)
         }
     }
 }
+
+void CAN_MonitorSwitch(uint8_t *p)
+{
+    if (*p == '0') {              // CAN monitor off, CAN run in normal mode with filter
+        CANMonitoring = false;
+        CAN_Config();
+    } else if (*p == '1') {                    // CAN monitor on, CAN run in monitor mode with no filter
+        CANMonitoring = true;
+        CAN_DeconfigFilter();
+    }
+}
+
+void CAN_ManualSend(uint8_t *p)
+{
+
+}
+
+
+

@@ -25,7 +25,7 @@ if not "%~1" == "" goto debugFile
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.general.xcl" --backend -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.general.xcl" --backend -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.driver.xcl" 
 
 @echo off 
 goto end 
@@ -34,7 +34,7 @@ goto end
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.general.xcl" "--debug_file=%~1" --backend -f "C:\Users\tianxia1\gdrive\WorkSpace\STM32\hmbird-fieldcase\hmb_chb_freertos_v2\EWARM\settings\app.app.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.3\common\bin\cspybat" -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.general.xcl" "--debug_file=%~1" --backend -f "C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\settings\app.app.driver.xcl" 
 
 @echo off 
 :end

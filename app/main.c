@@ -42,10 +42,7 @@ void MX_FREERTOS_Init(void);
 
 
 /* Private user code ---------------------------------------------------------*/
-void welcome_print(void)
-{
-    xprintf("os start...\n\r");
-}
+
 
 /**
   * @brief  The application entry point.

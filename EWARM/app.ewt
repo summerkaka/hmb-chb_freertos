@@ -1205,10 +1205,16 @@
                 <name>$PROJ_DIR$\..\app\can_app.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\app\command.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\app\eeprom.c</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\app\FieldCase.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\app\freertos.c</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\app\Heater.c</name>
@@ -1256,10 +1262,16 @@
                 <name>$PROJ_DIR$\..\Inc\can_app.h</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\Inc\command.h</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\Inc\eeprom.h</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Inc\FieldCase.h</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\Inc\FreeRTOSConfig.h</name>
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Inc\Heater.h</name>
@@ -1294,12 +1306,6 @@
         </file>
         <file>
             <name>$PROJ_DIR$\..\bsp\dma.h</name>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\bsp\freertos.c</name>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\bsp\FreeRTOSConfig.h</name>
         </file>
         <file>
             <name>$PROJ_DIR$\..\bsp\gpio.c</name>
