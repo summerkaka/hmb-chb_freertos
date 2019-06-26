@@ -609,7 +609,7 @@ static HAL_StatusTypeDef BatteryInfoInit(stBattery *battery)
         }
 
         do {
-            ret = Init_LTC2943(battery->gauge, battery->iic_mutex);
+            ret = LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex);
         } while (ret == HAL_BUSY);
 
         if (ret == HAL_ERROR) {
@@ -631,7 +631,7 @@ INITIALIZE:
     battery->capacity = BAT_MAX_MAH;
 
 INITIALIZE_LEVEL:                                                               // calculate capacity based on voltage
-    if (battery->voltage > 14) {
+    if (battery->voltage > 13.8) {
         battery->level = battery->capacity;
     } else if (battery->voltage < 11) {
         battery->level = 0;
@@ -641,7 +641,7 @@ INITIALIZE_LEVEL:                                                               
     xprintf("BatteryInfoInit(): INITIALIZE_LEVEL bat_%d level to %.0f with voltage: %.2f, ofuf: %d\n\r", battery->index, battery->level, battery->voltage, battery->gauge->acr_ofuf);
     battery->gauge->acr_ofuf = 0;
     do {
-        ret = Init_LTC2943(battery->gauge, battery->iic_mutex);
+        ret = LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex);
     } while (ret == HAL_BUSY);
     if (ret == HAL_ERROR) {
         battery->err_code = GAUGE_FAIL;

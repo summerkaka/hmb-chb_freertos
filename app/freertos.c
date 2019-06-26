@@ -296,9 +296,9 @@ void DebugTask(void *argument)
     /* USER CODE BEGIN StartDefaultTask */
     while (1)
     {
-        second = GetSecond();
-        xprintf("runtime: %ds\n\r", second);
         if (monitor_sw == true && (pWriteBuffer = pvPortMalloc(500)) != NULL) {
+            second = GetSecond();
+            xprintf("runtime: %ds\n\r", second);
             vTaskList(pWriteBuffer);
             xprintf("task_name task_state priority stack task_num\n\r");        // use 'debug()' here would cause i2c comm fail, i2c_isr_busy set
             xprintf("%s", (char *)pWriteBuffer);

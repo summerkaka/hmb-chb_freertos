@@ -1059,9 +1059,9 @@ void CAN_Config(void)
     uint32_t id = LOCAL_ID << 8;
     uint32_t mask = 0xff << 8;
 
-    if (HAL_CAN_Stop(&hcan) != HAL_OK)
+    if (hcan.State == HAL_CAN_STATE_LISTENING && HAL_CAN_Stop(&hcan) != HAL_OK)
         Error_Handler();
-    
+
     sFilterConfig.FilterBank = 0;
     sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
     sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
@@ -1090,7 +1090,6 @@ void CAN_Config(void)
 
     if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK)
         Error_Handler();
-
 
     if (HAL_CAN_Start(&hcan) != HAL_OK) {
         HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
@@ -1248,9 +1247,39 @@ void CAN_MonitorSwitch(uint8_t *p)
     }
 }
 
+
+/* console format:
+ * can src target cmdnum dlc |payload0 payload1 ......|   --all in hex format with no '0x'
+ * eg: can 00 0d 80 00
+ * 'can' is command prefix, argument pointer 'p' starts from 'src'
+ */
 void CAN_ManualSend(uint8_t *p)
 {
+    CAN_TxHeaderTypeDef txheader;   // for manual send from console
+    uint8_t txdata[8];  // for manual send from console
+    uint8_t i = 0;
 
+    sscanf((const char *)p, "%02hhx", txdata);                                  //hh means length is char
+    ((stCanId *)(&txheader.ExtId))->Src = txdata[0];
+    p += 3;
+
+    sscanf((const char *)p, "%02hhx", txdata);
+    ((stCanId *)(&txheader.ExtId))->Target = txdata[0];
+    p += 3;
+
+    sscanf((const char *)p, "%02hhx", txdata);
+    ((stCanId *)(&txheader.ExtId))->CmdNum = txdata[0];
+    p += 3;
+
+    sscanf((const char *)p, "%02hhx", txdata);
+    txheader.DLC = txdata[0];
+    p += 3;
+
+    for (i=0; i<txheader.DLC; i++) {
+        sscanf((const char *)p, "%02hhx", &txdata[i]);
+        p += 3;
+    }
+    HAL_CAN_AddTxMessage(&hcan, &txheader, txdata, &TxMailBox);
 }
 
 

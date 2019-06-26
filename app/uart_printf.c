@@ -22,7 +22,7 @@
 #endif
 
 /* Private typedef -----------------------------------------------------------*/
-#define UartHandle &huart1
+#define UARTHANDLE &huart1
 
 /* Private variables ---------------------------------------------------------*/
 
@@ -39,7 +39,7 @@ PUTCHAR_PROTOTYPE
 {
     /* Place your implementation of fputc here */
     /* e.g. write a character to the USART1 and Loop until the end of transmission */
-    HAL_UART_Transmit(UartHandle, (uint8_t *)&ch, 1, 0xFFFF);
+    HAL_UART_Transmit(UARTHANDLE, (uint8_t *)&ch, 1, 0xFFFF);
 
     return ch;
 }
@@ -47,16 +47,16 @@ PUTCHAR_PROTOTYPE
 GETCHAR_PROTOTYPE
 {
     uint8_t ch;
-    HAL_UART_Receive(UartHandle, &ch, 1, HAL_MAX_DELAY);
+    HAL_UART_Receive(UARTHANDLE, &ch, 1, HAL_MAX_DELAY);
 
     /* Echo character back to console */
-    // HAL_UART_Transmit(UartHandle, &ch, 1, HAL_MAX_DELAY);
+    // HAL_UART_Transmit(UARTHANDLE, &ch, 1, HAL_MAX_DELAY);
 
     /* And cope with Windows */
     // if (ch == '\r')
     // {
     //     uint8_t ret = '\n';
-    //     HAL_UART_Transmit(UartHandle, &ret, 1, HAL_MAX_DELAY);
+    //     HAL_UART_Transmit(UARTHANDLE, &ret, 1, HAL_MAX_DELAY);
     // }
 
     return ch;
@@ -69,7 +69,7 @@ GETCHAR_PROTOTYPE
  */
 int uartSendChar(int ch)
 {
-    HAL_UART_Transmit(UartHandle, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+    HAL_UART_Transmit(UARTHANDLE, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
     return ch;
 }
 /** @brief Receives a character from serial port
@@ -79,16 +79,16 @@ int uartSendChar(int ch)
 int uartReceiveChar(void)
 {
     uint8_t ch;
-    HAL_UART_Receive(UartHandle, &ch, 1, HAL_MAX_DELAY);
+    HAL_UART_Receive(UARTHANDLE, &ch, 1, HAL_MAX_DELAY);
 
     /* Echo character back to console */
-    // HAL_UART_Transmit(UartHandle, &ch, 1, HAL_MAX_DELAY);
+    // HAL_UART_Transmit(UARTHANDLE, &ch, 1, HAL_MAX_DELAY);
 
     /* And cope with Windows */
     // if (ch == '\r')
     // {
     //     uint8_t ret = '\n';
-    //     HAL_UART_Transmit(UartHandle, &ret, 1, HAL_MAX_DELAY);
+    //     HAL_UART_Transmit(UARTHANDLE, &ret, 1, HAL_MAX_DELAY);
     // }
 
     return ch;

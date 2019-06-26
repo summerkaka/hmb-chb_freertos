@@ -158,7 +158,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
     /* User can add his own implementation to report the HAL error return state */
-    xprintf("Error_Handler\n\r");
+    TaskHandle_t tid = xTaskGetCurrentTaskHandle();
+    char *s = pcTaskGetName(tid);
+    xprintf("Error_Handler, task: %s\n\r", s);
 }
 
 #ifdef USE_FULL_ASSERT

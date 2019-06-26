@@ -12,7 +12,7 @@
 #include "app_include.h"
 
 /* Private macro -------------------------------------------------------------*/
-#define CMD_SIZE 16
+#define CMD_SIZE 64
 
 /* Private typedef -----------------------------------------------------------*/
 typedef enum {

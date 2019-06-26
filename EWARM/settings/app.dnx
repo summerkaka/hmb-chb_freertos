@@ -20,7 +20,7 @@
         <LeaveTargetRunning>_ 0</LeaveTargetRunning>
     </StLinkDriver>
     <DebugChecksum>
-        <Checksum>3356090352</Checksum>
+        <Checksum>376382763</Checksum>
     </DebugChecksum>
     <Exceptions>
         <StopOnUncaught>_ 0</StopOnUncaught>
@@ -57,7 +57,8 @@
         <ITMlogFile>$PROJ_DIR$\ITM.log</ITMlogFile>
     </SWOTraceHWSettings>
     <struct_types>
-        <Fmt0>tuCanId-all	4	0</Fmt0>
+        <Fmt0>CAN_TxHeaderTypeDef-ExtId	4	0</Fmt0>
+        <Fmt1>tuCanId-all	4	0</Fmt1>
     </struct_types>
     <Trace2>
         <Enabled>0</Enabled>
@@ -130,8 +131,7 @@
         <mode>0</mode>
     </DisassembleMode>
     <Breakpoints2>
-        <Bp0>_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\app\can_app.c}.1242.5" 0 0 1 "" 0 "" 0</Bp0>
-        <Count>1</Count>
+        <Count>0</Count>
     </Breakpoints2>
     <Aliases>
         <Count>0</Count>
