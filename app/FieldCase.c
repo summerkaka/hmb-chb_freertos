@@ -350,6 +350,29 @@ void Thread_CbPwrCntl(void *p)
     }
 }
 
+void Thread_Led_Blink(void *p)
+{
+    while (1) {
+        if (low_power_flag) {
+            HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
+        } else if (Battery_1.status == kstsError || Battery_2.status == kstsError) {
+            HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
+        } else {
+            HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
+        }
+
+        if (Battery_1.status >= kstsPreCharge || Battery_2.status >= kstsPreCharge) {
+            HAL_GPIO_TogglePin(LED_WHITE_GPIO_Port, LED_WHITE_Pin);
+        } else if (Battery_1.status == kstsFinish && Battery_2.status == kstsFinish) {
+            HAL_GPIO_WritePin(LED_WHITE_GPIO_Port, LED_WHITE_Pin, GPIO_PIN_SET);
+        } else {
+            HAL_GPIO_WritePin(LED_WHITE_GPIO_Port, LED_WHITE_Pin, GPIO_PIN_RESET);
+        }
+
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
+}
+
 // void Self_Check(void)
 // {
 //    if (MB_Pwr.CheckFaulty())

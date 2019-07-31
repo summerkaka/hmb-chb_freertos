@@ -114,8 +114,8 @@ __weak void vApplicationTickHook(void)
     if (tick >= 1000) {
         seconds++;
         tick = 0;
-        HAL_GPIO_TogglePin(LED_WHITE_GPIO_Port, LED_WHITE_Pin);
-        HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
+        //HAL_GPIO_TogglePin(LED_WHITE_GPIO_Port, LED_WHITE_Pin);
+        //HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
         //HAL_IWDG_Refresh(&hiwdg);
         if (seconds % 60 == 0)
             minutes++;
@@ -163,7 +163,6 @@ void vApplicationDaemonTaskStartupHook(void)
     Battery_HwInit();
     CAN_Listen();
 
-
     // xTimerStop(timer_pump1_start, portMAX_DELAY);
     // xTimerStop(timer_pump1_stop, portMAX_DELAY);
     // xTimerStop(timer_pump2_start, portMAX_DELAY);
@@ -172,20 +171,21 @@ void vApplicationDaemonTaskStartupHook(void)
     // xTimerStop(timer_pvalve_stop, portMAX_DELAY);
     xTimerStart(timer_heater, portMAX_DELAY);
 
-    xTaskCreate(thread_adaptor, "adaptor", 192, NULL, osPriorityNormal, NULL);
-    xTaskCreate(Thread_FieldcaseInfoUpdate, "fieldcase", 192, NULL, osPriorityNormal, NULL);
-    xTaskCreate(Thread_GcPwrCntl, "gc_pwr", 192, NULL, osPriorityNormal, NULL);
-    xTaskCreate(Thread_CbPwrCntl, "cb_pwr", 128, NULL, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryInfoUpdate, "batinfo1", 224, &Battery_1, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryInfoUpdate, "batinfo2", 224, &Battery_2, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryChargeControl, "batchg1", 192, &Battery_1, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryChargeControl, "batchg2", 192, &Battery_2, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply1", 192, &Battery_1, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply2", 192, &Battery_2, osPriorityNormal, NULL);
-    xTaskCreate(DebugTask, "debubprint", 192, NULL, osPriorityNormal, NULL);
-    xTaskCreate(BatteryDataLog, "batlog", 192, NULL, osPriorityNormal, NULL);
-    xTaskCreate(Thread_CANComm, "CANbus", 224, NULL, osPriorityAboveNormal, NULL);
-    xTaskCreate(Thread_Console, "console", 192, NULL, osPriorityAboveNormal, NULL);
+    xTaskCreate(thread_adaptor, "adaptor", 256, NULL, osPriorityNormal, NULL);
+    xTaskCreate(Thread_FieldcaseInfoUpdate, "fieldcase", 256, NULL, osPriorityNormal, NULL);
+    xTaskCreate(Thread_GcPwrCntl, "gc_pwr", 256, NULL, osPriorityNormal, NULL);
+    xTaskCreate(Thread_CbPwrCntl, "cb_pwr", 256, NULL, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryInfoUpdate, "batinfo1", 256, &Battery_1, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryInfoUpdate, "batinfo2", 256, &Battery_2, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryChargeControl, "batchg1", 256, &Battery_1, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryChargeControl, "batchg2", 256, &Battery_2, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply1", 256, &Battery_1, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply2", 256, &Battery_2, osPriorityNormal, NULL);
+    xTaskCreate(DebugTask, "debubprint", 256, NULL, osPriorityNormal, NULL);
+    xTaskCreate(BatteryDataLog, "batlog", 256, NULL, osPriorityNormal, NULL);
+    xTaskCreate(Thread_CANComm, "CANbus", 256, NULL, osPriorityAboveNormal, NULL);
+    xTaskCreate(Thread_Console, "console", 256, NULL, osPriorityAboveNormal, NULL);
+    xTaskCreate(Thread_Led_Blink, "ledblink", 64, NULL, osPriorityNormal, NULL);
     ValveDataLoad();
     xprintf("os start...\n\r");
 }

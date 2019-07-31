@@ -46,8 +46,8 @@ Heater_t heater = {
     .setpoint = 0,
     .faulty = false,
     .temperature = 25,
-    .off_and_lock = 0,
 };
+bool gheater_off_and_lock = true;
 
 
 /* Code begin ----------------------------------------------------------------*/
@@ -77,9 +77,14 @@ static void CalcTemperature(Heater_t *heater, int16_t adc_code)
     }
 }
 
-void HeaterContactHandler(Heater_t *heater, uint8_t value)
+void HeaterContactHandler(uint8_t value)
 {
-    heater->off_and_lock = value ? 0 : 1;
+    gheater_off_and_lock = value ? false : true;
+}
+
+void HeaterContactRelease(void)
+{
+    gheater_off_and_lock = false;
 }
 
 void TimerCallBack_Heater(TimerHandle_t xtimer)
@@ -88,7 +93,7 @@ void TimerCallBack_Heater(TimerHandle_t xtimer)
 
     CalcTemperature(h, *h->adc_code);
 
-    if (h->off_and_lock == 1) {
+    if (gheater_off_and_lock == true) {
         if (h->mode != kHeaterOff || h->pwm.status != kLoadOff) {
             h->mode = kHeaterOff;
             PwmSetTo(&h->pwm, 0);

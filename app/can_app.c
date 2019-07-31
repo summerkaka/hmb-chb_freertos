@@ -223,118 +223,9 @@ IDReadHandler(const stCanPacket *pcmd)
 }
 
 static void
-DetectADCReadHandler(const stCanPacket *pcmd)
-{
-    uint16_t value = 0;
-    TxHeader.ExtId = pcmd->id.all;
-	((stCanId *)(&TxHeader.ExtId))->Src = LOCAL_ID;
-	((stCanId *)(&TxHeader.ExtId))->Target = pcmd->id.field.Src;
-
-    // block A
-    if (Adaptor.status != kAdaptorNotExist)
-        value |= DIO_ADAPTOR_SUPPLY;
-    else
-        value &= ~DIO_ADAPTOR_SUPPLY;
-
-    if (Battery_1.mux_on == true)
-        value |= DIO_BAT1_SUPPLY;
-    else
-        value &= ~DIO_BAT1_SUPPLY;
-
-    if (Battery_2.mux_on == true)
-        value |= DIO_BAT2_SUPPLY;
-    else
-        value &= ~DIO_BAT2_SUPPLY;
-
-    if (Fan.status != kLoadOff)
-        value |= DIO_GCFAN;
-    else
-        value &= ~DIO_GCFAN;
-
-    if (heater.mode != kHeaterOff)
-        value |= DIO_HEATER;
-    else
-        value &= ~DIO_HEATER;
-
-    if (Battery_1.status >= kstsPreCharge && Battery_1.status < kstsFinish)
-        value |= DIO_BAT1_CHARGE;
-    else
-        value &= ~DIO_BAT1_CHARGE;
-
-    if (Battery_2.status >= kstsPreCharge && Battery_2.status < kstsFinish)
-        value |= DIO_BAT2_CHARGE;
-    else
-        value &= ~DIO_BAT2_CHARGE;
-
-    if (Battery_1.is_aged == true)
-        value |= DIO_BAT1_AGED;
-    else
-        value &= ~DIO_BAT1_AGED;
-
-    if (Battery_2.is_aged == true)
-        value |= DIO_BAT2_AGED;
-    else
-        value &= ~DIO_BAT2_AGED;
-
-    if (Valve_1.status == kLoadOn )
-        value |= DIO_VALVE1_SW;
-    else
-        value &= ~DIO_VALVE1_SW;
-
-    if (Valve_2.status == kLoadOn)
-        value |= DIO_VALVE2_SW;
-    else
-        value &= ~DIO_VALVE2_SW;
-
-    if (Pump_1.dio.status == kLoadOn)
-        value |= DIO_PUMP;
-    else
-        value &= ~DIO_PUMP;
-
-    if (PValve.dio.status == kLoadOn)
-        value |= DIO_PUMP_VALVE;
-    else
-        value &= ~DIO_PUMP_VALVE;
-
-    if (gc_status == kGcFastBoot) {
-        value &= ~DIO_BOOT_MODE;
-        //xprintf("answer boot mode: 'fastboot', %d\n\r", boot_request);
-    } else {
-        value |= DIO_BOOT_MODE;
-        //xprintf("anser boot mode: 'normal', %d\n\r", boot_request);
-    }
-
-    WriteShortL(TxData, value);
-
-    // block B
-    value = 0;
-
-    if (HAL_GPIO_ReadPin(LED_RED_GPIO_Port, LED_RED_Pin)) {
-        value |= DIO_LED_RED;
-    } else {
-        value &= ~DIO_LED_RED;
-    }
-
-    if (HAL_GPIO_ReadPin(LED_WHITE_GPIO_Port, LED_WHITE_Pin)) {
-        value |= DIO_LED_WHITE;
-    } else {
-        value &= ~DIO_LED_WHITE;
-    }
-
-    if (!FieldCase.is_covered)
-        value |= DIO_HALL_SENSOR;
-    else
-        value &= ~DIO_HALL_SENSOR;
-
-    WriteShortL(TxData+2, value);
-    TxHeader.DLC = 4;
-    HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailBox);
-}
-
-static void
 DIOReadHandler(const stCanPacket *pcmd)
 {
-    uint16_t value = 0, mask = 0;
+    uint16_t value = 0, mask = 0, value_b = 0;
     uint8_t cmd_num = pcmd->id.field.CmdNum;
     uint8_t block_id = 0;
 
@@ -350,8 +241,7 @@ DIOReadHandler(const stCanPacket *pcmd)
         block_id = pcmd->data[0];
     }
 
-    switch (block_id) {
-    case BLOCK_A:
+    if ((cmd_num == CMD_READ_DIO && block_id == BLOCK_A) || cmd_num == CMD_DETECT_ADC) {
         if ((mask & DIO_ADAPTOR_SUPPLY) && Adaptor.status != kAdaptorNotExist)
             value |= DIO_ADAPTOR_SUPPLY;
         else
@@ -372,17 +262,17 @@ DIOReadHandler(const stCanPacket *pcmd)
         else
             value &= ~DIO_GCFAN;
 
-        if ((mask & DIO_HEATER) && heater.pwm.status != kLoadOff)
+        if ((mask & DIO_HEATER) && heater.mode != kHeaterOff)
             value |= DIO_HEATER;
         else
             value &= ~DIO_HEATER;
 
-        if ((mask & DIO_BAT1_CHARGE) && (Battery_1.status >= kstsPreCharge && Battery_1.status < kstsFinish))
+        if ((mask & DIO_BAT1_CHARGE) && Battery_1.status >= kstsPreCharge && Battery_1.status < kstsFinish)
             value |= DIO_BAT1_CHARGE;
         else
             value &= ~DIO_BAT1_CHARGE;
 
-        if ((mask & DIO_BAT2_CHARGE) && (Battery_2.status >= kstsPreCharge && Battery_2.status < kstsFinish))
+        if ((mask & DIO_BAT2_CHARGE) && Battery_2.status >= kstsPreCharge && Battery_2.status < kstsFinish)
             value |= DIO_BAT2_CHARGE;
         else
             value &= ~DIO_BAT2_CHARGE;
@@ -417,43 +307,42 @@ DIOReadHandler(const stCanPacket *pcmd)
         else
             value &= ~DIO_PUMP_VALVE;
 
-        if (mask & DIO_BOOT_MODE) {
-            if (gc_status == kGcFastBoot) {
-                value &= ~DIO_BOOT_MODE;
-            } else {
-                value |= DIO_BOOT_MODE;
-            }
-        }
-        break;
-    case BLOCK_B:
-        if (mask & DIO_LED_RED) {
-            if (HAL_GPIO_ReadPin(LED_RED_GPIO_Port, LED_RED_Pin)) {
-                value |= DIO_LED_RED;
-            } else {
-                value &= ~DIO_LED_RED;
-            }
-        }
-
-        if (mask & DIO_LED_WHITE) {
-            if (HAL_GPIO_ReadPin(LED_WHITE_GPIO_Port, LED_WHITE_Pin)) {
-                value |= DIO_LED_WHITE;
-            } else {
-                value &= ~DIO_LED_WHITE;
-            }
-        }
-
-        if ((mask & DIO_HALL_SENSOR) && !FieldCase.is_covered)
-            value |= DIO_HALL_SENSOR;
+        if ((mask & DIO_BOOT_MODE) && gc_status == kGcFastBoot)
+            value &= ~DIO_BOOT_MODE;
         else
-            value &= ~DIO_HALL_SENSOR;
-        break;
-    case BLOCK_C:
-        break;
-    default : break;
+            value |= DIO_BOOT_MODE;
     }
 
-    WriteShortL(TxData, value);
-    TxHeader.DLC = 2;
+    if ((cmd_num == CMD_READ_DIO && block_id == BLOCK_B) || cmd_num == CMD_DETECT_ADC) {
+        if ((mask & DIO_CALIFORNIA) && Battery_1.mode == kCalifornia)
+            value_b |= DIO_CALIFORNIA;
+        else
+            value_b &= ~DIO_CALIFORNIA;
+
+        if ((mask & DIO_LED_RED) && HAL_GPIO_ReadPin(LED_RED_GPIO_Port, LED_RED_Pin))
+            value_b |= DIO_LED_RED;
+        else
+            value_b &= ~DIO_LED_RED;
+
+        if ((mask & DIO_LED_WHITE) && HAL_GPIO_ReadPin(LED_WHITE_GPIO_Port, LED_WHITE_Pin))
+            value_b |= DIO_LED_WHITE;
+        else
+            value_b &= ~DIO_LED_WHITE;
+
+        if ((mask & DIO_HALL_SENSOR) && !FieldCase.is_covered)
+            value_b |= DIO_HALL_SENSOR;
+        else
+            value_b &= ~DIO_HALL_SENSOR;
+    }
+
+    if (cmd_num == CMD_READ_DIO) {
+        WriteShortL(TxData, value);
+        TxHeader.DLC = 2;
+    } else if (cmd_num == CMD_DETECT_ADC) {
+        WriteShortL(TxData, value);
+        WriteShortL(TxData+2, value_b);
+        TxHeader.DLC = 4;
+    }
     HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailBox);
 }
 
@@ -554,9 +443,9 @@ UpdateHandler(const stCanPacket *pcmd)
             TxHeader.DLC = 1;
             HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailBox);
             xprintf("jumping to BL...\n\r");
-            __set_MSP(*(__IO uint32_t*)BL_ADDRESS);
-            ((void(*)(void))(*(__IO uint32_t*)(BL_ADDRESS + 4)))();
-            // NVIC_SystemReset();
+            // __set_MSP(*(__IO uint32_t*)BL_ADDRESS);
+            // ((void(*)(void))(*(__IO uint32_t*)(BL_ADDRESS + 4)))();
+            NVIC_SystemReset();
         } else {
             TxData[0] = 0x01;
             TxHeader.DLC = 1;
@@ -690,6 +579,7 @@ SetPointWrHandler(const stCanPacket *pcmd)
             heater.setpoint = sp;
             heater.mode = kHeaterPID;
             TxData[1] = 0x00;
+            HeaterContactRelease();
             break;
         case 0x02:  // turn on and set fix duty cycle
             duty = GetShortL(&pcmd->data[2]);
@@ -776,16 +666,13 @@ StopRunHandler(void)
 static void
 ContactHandler(const stCanPacket *pcmd)
 {
-    HeaterContactHandler(&heater, pcmd->data[0]);
+    HeaterContactHandler(pcmd->data[0]);
 }
 
 static void
 UnknownCmdHandler(const stCanPacket *pcmd)
 {
-    TxHeader.ExtId = 0;
-    TxHeader.DLC = 8;
-    memset(TxData, 0xff, 8);
-    HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailBox);
+    printf("unkonw cmd_num : %02x", pcmd->id.field.CmdNum);
 }
 
 static void
@@ -1008,8 +895,6 @@ CmdHandler(const stCanPacket *pcmd)
 		IDReadHandler(pcmd);
 		break;
     case CMD_DETECT_ADC:
-        DetectADCReadHandler(pcmd);
-        break;
 	case CMD_READ_DIO:
 		DIOReadHandler(pcmd);
 		break;
@@ -1178,12 +1063,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
         portYIELD_FROM_ISR(pdTRUE);
 
 }
+
 void Thread_CANComm(void *p)
 {
     CANMsg_t msg;
     stCanPacket pkt;
     char buf[32] = {'c','a','n',':',' ',};
     int8_t i = 0, j = 0;
+    uint32_t latest_time_stamp;
 
     xprintf("thread_can start\n\r");
 
@@ -1208,6 +1095,11 @@ void Thread_CANComm(void *p)
                 xprintf("%s\n\r", buf);
                 memset(&buf[5], 0, 27);
             }
+            latest_time_stamp = GetSecond();
+        }
+
+        if (GetSecond() - latest_time_stamp >= 15) {
+            HeaterContactHandler(0);
         }
 
         if (CANListening == false)

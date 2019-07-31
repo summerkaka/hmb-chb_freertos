@@ -12,8 +12,8 @@
 #include "app_include.h"
 
 /* Private macro -------------------------------------------------------------*/
-#define TMAX_5A             343                                                 // max fast charge time limit
-#define TMAX_DYNAMIC        463                                                 // max fast charge time limit
+#define TMAX_5A             (22.0/MAX_CHARGE_AMPS*60/0.75)                      // max fast charge time limit
+#define TMAX_DYNAMIC        (22.0/DYNAMIC_CHARGE_AMPS*60/0.75)                  // max fast charge time limit
 #define MAX_CHARGE_AMPS     5.0F
 #define DYNAMIC_CHARGE_AMPS 3.7F
 #define PRECHARGE_AMPS      1                                                   // 1amps precharge current
@@ -310,7 +310,7 @@ static void RemainTimePredict(stBattery *bat)
                 (bat->i_transit_up >= bat->tick_vpredict || bat->i_transit_down >= bat->tick_vpredict)) {   // this judgement cannot be implement when load transit happens
             bat->last_voltage = bat->voltage;
             bat->tick_vpredict = current_second;
-        } else if (current_second - bat->tick_vpredict >= interval) {
+        } else if (current_second - bat->tick_vpredict >= interval && current_second - bat->i_transit_down > 5) {
             float drop = bat->last_voltage - bat->voltage;
             if (bat->voltage <= GC_STOP_TH_VOLT)
                 v_remain_time = -1;
@@ -768,23 +768,31 @@ void Thread_BatteryChargeControl(stBattery *battery)
 
 void Battery_HwInit(void)
 {
+    bool low_bat_1, low_bat_2;
+
     Battery_1.iic_mutex = mutex_iic0Handle;
     Battery_2.iic_mutex = mutex_iic1Handle;
 
     if (CheckConnection(&Battery_1)) {
         BatteryInfoInit(&Battery_1);
         CheckFaulty(&Battery_1);
+        low_bat_1 = Battery_1.remain_time == -1;
     } else {
         if (BatteryDataClear(&Battery_1) == HAL_OK)
             xprintf("Battery_HwInit(): clear battery_1 data\n\r");
+        low_bat_1 = true;
     }
     if (CheckConnection(&Battery_2)) {
         BatteryInfoInit(&Battery_2);
         CheckFaulty(&Battery_2);
+        low_bat_1 = Battery_2.remain_time == -1;
     } else {
         if (BatteryDataClear(&Battery_2) == HAL_OK)
             xprintf("Battery_HwInit(): clear battery_2 data\n\r");
+        low_bat_2 = true;
     }
+
+    low_power_flag = low_bat_1 && low_bat_2;
 
     if (Battery_1.remain_time > 0 && Battery_2.remain_time < 0) {
         SupplyOn(&Battery_1);

@@ -85,6 +85,7 @@ void TurnOffGc(void *);
 void Thread_FieldcaseInfoUpdate(void *p);
 void Thread_GcPwrCntl(void *p);
 void Thread_CbPwrCntl(void *p);
+void Thread_Led_Blink(void *p);
 
 
 //#ifdef __cplusplus

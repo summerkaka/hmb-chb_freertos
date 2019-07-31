@@ -60,12 +60,14 @@ typedef struct {
 
 /* Exported variables ------------------------------------------------------- */
 extern Heater_t heater;
+extern bool gheater_off_and_lock;
 
 
 /* Exported functions ------------------------------------------------------- */
 void HeaterSetPID(Heater_t *heater, const int16_t (*pid)[3]);
 void HeaterGetPID(Heater_t *heater, int16_t (*pid)[3]);
-void HeaterContactHandler(Heater_t *heater, uint8_t value);
+void HeaterContactHandler(uint8_t value);
+void HeaterContactRelease(void);
 void HeaterSetFixPwm(Heater_t *h, float duty_cycle);
 void TimerCallBack_Heater(TimerHandle_t xtimer);
 
