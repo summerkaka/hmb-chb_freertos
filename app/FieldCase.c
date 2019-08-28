@@ -234,12 +234,12 @@ void Thread_GcPwrCntl(void *p)
     xprintf("thread_gcpwrcntl start\n\r");
 
     while(1) {
-        if (Adaptor.status != kAdaptorNotExist)
+        if (Adaptor.status != kAdaptorNotExist && Battery_1.status > kstsError && Battery_2.status > kstsError)
             low_power_flag = false;
 
         if (gc_status == kGcOff) {
             if (power_button == OFF && FieldCase.is_switchon) {
-                if ((Battery_1.remain_time >= 0 || Battery_2.remain_time >= 0) && low_power_flag == false) {
+                if (low_power_flag == false || Adaptor.status != kAdaptorNotExist) {
                     TurnOnGc();
                 }
                 power_button = ON;
@@ -247,7 +247,7 @@ void Thread_GcPwrCntl(void *p)
                 power_button = OFF;
 
             if (cover == OFF && FieldCase.is_covered == false) {
-                if ((Battery_1.remain_time >= 0 || Battery_2.remain_time >= 0) && low_power_flag == false) {
+                if (low_power_flag == false || Adaptor.status != kAdaptorNotExist) {
                     if (power_button == ON)
                         TurnOnGc();
                     else
@@ -353,10 +353,10 @@ void Thread_CbPwrCntl(void *p)
 void Thread_Led_Blink(void *p)
 {
     while (1) {
-        if (low_power_flag) {
-            HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
-        } else if (Battery_1.status == kstsError || Battery_2.status == kstsError) {
+        if (Battery_1.status == kstsError || Battery_2.status == kstsError) {
             HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
+        } else if (low_power_flag) {
+            HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
         } else {
             HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);
         }

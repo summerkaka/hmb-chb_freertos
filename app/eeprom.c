@@ -152,7 +152,7 @@ HAL_StatusTypeDef BatteryDataSave(stBattery *bat)
     tuType32 tu_value;
 
     if (osMutexWait(bat->iic_mutex, 1000) != osOK)
-        return HAL_ERROR;
+        return HAL_BUSY;
 
     if (bat->status == kstsNotExist)
         return HAL_ERROR;
@@ -221,7 +221,8 @@ HAL_StatusTypeDef BatteryDataClear(stBattery *bat)
     HAL_StatusTypeDef ret = HAL_ERROR;
 
     if (osMutexWait(bat->iic_mutex, 1000) != osOK)
-        return HAL_ERROR;
+        return HAL_BUSY;
+
 
     for (i = 0; i < depth; i++) {
         if (ret = DescriptorSave(bat->index-1, i, &data))
@@ -240,7 +241,7 @@ HAL_StatusTypeDef BatteryDataLoad(stBattery *bat)
     tuType32 tu_value;
 
     if (osMutexWait(bat->iic_mutex, 1000) != osOK)
-        return HAL_ERROR;
+        return HAL_BUSY;
 
     if ((buf = pvPortMalloc(RL_DEP*RL_WID*sizeof(int16_t))) == NULL) {
         xprintf("BatteryDataLoad fail to malloc mem\n\r");
@@ -375,7 +376,6 @@ void ValveDataLoad(void)
         osMutexRelease(mutex_iic1Handle);
         DioSetTo(&Valve_2, data == 1);
     }
-
 }
 
 void ValveDataSave(uint8_t valve, uint8_t data)

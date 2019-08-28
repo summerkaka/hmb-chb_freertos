@@ -196,11 +196,11 @@ AIOReadHandler(const stCanPacket *pcmd)
         break;
     case MUX_CG_PRESSURE_1:
         value = (int32_t)(FieldCase.gas_1_pressure * 1000);
-        value = value <= 30000 ? 0 : value;
+        value = value <= 5000 ? 0 : value;
         break;
     case MUX_CG_PRESSURE_2:
         value = (int32_t)(FieldCase.gas_2_pressure * 1000);
-        value = value <= 30000 ? 0 : value;
+        value = value <= 5000 ? 0 : value;
         break;
     default : break;
     }
@@ -1050,23 +1050,24 @@ void CAN_Listen(void)
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
     portBASE_TYPE pxHigherPriorityTaskWoken;
+    stCanPacket can_pkt;
 
     if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rx_msg.header, rx_msg.data) != HAL_OK)
-    {
         Error_Handler();
-    }
 
+    can_pkt.id.all = rx_msg.header.ExtId;
+    can_pkt.dlc = rx_msg.header.DLC;
+    memcpy(can_pkt.data, rx_msg.data, can_pkt.dlc);
     can_intr_cnt++;
     CAN_Listen();
-    xQueueSendFromISR(q_canmsg, &rx_msg, &pxHigherPriorityTaskWoken);
+    xQueueSendFromISR(q_canmsg, &can_pkt, &pxHigherPriorityTaskWoken);
+
     if (pxHigherPriorityTaskWoken == pdTRUE)
         portYIELD_FROM_ISR(pdTRUE);
-
 }
 
 void Thread_CANComm(void *p)
 {
-    CANMsg_t msg;
     stCanPacket pkt;
     char buf[32] = {'c','a','n',':',' ',};
     int8_t i = 0, j = 0;
@@ -1075,10 +1076,7 @@ void Thread_CANComm(void *p)
     xprintf("thread_can start\n\r");
 
     while (1) {
-        if (xQueueReceive(q_canmsg, &msg, 5/portTICK_PERIOD_MS) == pdPASS) {
-            pkt.id.all = msg.header.ExtId;
-            pkt.dlc = msg.header.DLC;
-            memcpy(pkt.data, msg.data, 8);
+        if (xQueueReceive(q_canmsg, &pkt, 5/portTICK_PERIOD_MS) == pdPASS) {
             CmdHandler((const stCanPacket *)&pkt);
             if (CANMonitoring == ON) {
                 i = 5;

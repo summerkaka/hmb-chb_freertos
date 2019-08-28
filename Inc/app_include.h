@@ -22,6 +22,7 @@
 #include "string.h"
 #include "stdbool.h"
 #include "stdint.h"
+#include "stdlib.h"
 #include "FreeRTOSConfig.h"
 
 #include "AD5241.h"

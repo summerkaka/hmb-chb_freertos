@@ -23,6 +23,7 @@
 #define CHECKCHARGE_INTV    64                                                  // 64ms
 #define HEAVY_TRANSIT_TH    2                                                   // record heavy_transit when load current step increase > this amps
 #define I_CAL_TH            -2.5F                                               // calibrate battery when reach bottom and supply current < this
+#define V_DROP_TH           1                                                   // detect rocker switch off th
 
 #if DEBUG == 1
   #define PRECHARGE_TIME  10                                                    // tmax/12 in normal operation, 1min for debug convenience
@@ -32,6 +33,8 @@
   #define TRICKLE_TIME    100                                                   // tmax/3 in normal operation, 1min for debug convenience
 #endif
 
+#define max(a, b) (a) > (b) ? (a) : (b)
+#define min(a, b) (a) < (b) ? (a) : (b)
 
 /* Private typedef -----------------------------------------------------------*/
 
@@ -215,6 +218,50 @@ static bool CheckConnection(stBattery *bat)
     return HAL_GPIO_ReadPin(bat->connect_port, bat->connect_pin);
 }
 
+static void GetSampleVolt(stBattery *bat)
+{
+    uint32_t current_second = GetSecond();
+
+    if (Adaptor.status != kAdaptorNotExist) {
+        bat->last_voltage = 0;
+    }
+
+    if (bat->volt_sample == 0) {                                                                // means battery just start to use, haven't record last sample voltage
+        bat->volt_sample = bat->voltage;
+        bat->tick_volt_sample = current_second;
+    } else if (bat->i_transit_down >= bat->tick_volt_sample) {  // this judgement cannot be implement when load transit-up happens
+        bat->volt_sample = 0;
+    } else if (current_second - bat->tick_volt_sample >= 5) {
+        bat->tick_volt_sample = current_second;
+        bat->volt_sample = bat->voltage;
+    }
+}
+
+static void GetQDrop(stBattery *bat)
+{
+    uint32_t current_second = GetSecond();
+
+    if (Adaptor.status != kAdaptorNotExist) {
+        bat->last_level = 0;
+    }
+
+    if (bat->mux_on == true && bat->status == kstsFloat) {
+        if (bat->last_level == 0) {
+            bat->last_level = bat->level;
+            bat->tick_lpredict = current_second;
+        } else {
+            if (current_second - bat->tick_lpredict >= 10) {
+                bat->coulomb_per_prd = (bat->last_level - bat->level + 1e-3) / (current_second - bat->tick_lpredict);
+                bat->tick_lpredict = current_second;
+                bat->last_level = bat->level;
+            }
+        }
+    } else {
+        bat->last_level = 0;
+        bat->coulomb_per_prd = 0;
+    }
+}
+
 static void CurveLearning(stBattery *bat)
 {
     int8_t cur = bat->current > 0 ? 0 : (int8_t)fabs(bat->current);
@@ -287,76 +334,85 @@ static void RemainTimePredict(stBattery *bat)
 {
     uint32_t interval = fabs(bat->current) > 0.2 ? 30 : 300;
     uint32_t current_second = GetSecond();
-    uint32_t current_minute = GetMinute();
-    int8_t temp = bat->temperature >= 68 ? 68 : (int8_t)bat->temperature;
+    int8_t temp = bat->temperature >= 68 ? 68 / 3 : (int8_t)bat->temperature / 3;
     int8_t cur = (int8_t)fabs(bat->current);
     float v_remain_time = bat->remain_time;
     float l_remain_time = bat->remain_time;
+    float remain_time = bat->remain_time;
+    float coeff_v = exp(11 - bat->voltage);
+    float coeff_l = 1 - coeff_v;
 
-    if ((bat->status >= kstsPreCharge) || bat->status <= kstsError) {           // battery is not supplying
-        bat->remain_time = 480;
-        return;
-    }
-    if (Adaptor.status != kAdaptorNotExist) {                                   // battery is floating
+    cur = cur > 9 ? 9 : cur;
+    cur = cur < 0 ? 0 : cur;
+
+    if (Adaptor.status != kAdaptorNotExist) {                                                               // battery is floating
         bat->last_voltage = 0;
         bat->last_level = 0;
-        bat->remain_time = bat->remain_time < 0 ? 0 : bat->remain_time;
-        return;
     }
 
-    if (bat->status == kstsFloat && bat->mux_on == true) {                      // battery is supplying
-        // volt predict
-        if (bat->last_voltage == 0 ||                                                                       // means battery just start to use, haven't record last sample voltage
-                (bat->i_transit_up >= bat->tick_vpredict || bat->i_transit_down >= bat->tick_vpredict)) {   // this judgement cannot be implement when load transit happens
-            bat->last_voltage = bat->voltage;
-            bat->tick_vpredict = current_second;
-        } else if (current_second - bat->tick_vpredict >= interval && current_second - bat->i_transit_down > 5) {
-            float drop = bat->last_voltage - bat->voltage;
-            if (bat->voltage <= GC_STOP_TH_VOLT)
-                v_remain_time = -1;
-            else if (drop > 0) {
-                v_remain_time = (bat->voltage - GC_STOP_TH_VOLT) / drop * (current_second - bat->tick_vpredict) / 60;
-                v_remain_time = v_remain_time > 0 ? v_remain_time : 0;
+    if (bat->status == kstsFloat) {
+        if (bat->mux_on == true) {                                                                          // battery is supplying
+            // volt predict
+            if (bat->last_voltage == 0 ||                                                                       // means battery just start to use, haven't record last sample voltage
+                    (max(bat->i_transit_up, bat->i_transit_down) >= bat->tick_vpredict)) {   // this judgement cannot be implement when load transit happens
+                bat->last_voltage = bat->voltage;
+                bat->tick_vpredict = current_second;
+            } else if (current_second - bat->tick_vpredict >= interval) {
+                float drop = bat->last_voltage - bat->voltage;
+                if (bat->voltage <= GC_STOP_TH_VOLT)
+                    v_remain_time = -1;
+                else if (drop > 0) {
+                    v_remain_time = (bat->voltage - GC_STOP_TH_VOLT) / drop * (current_second - bat->tick_vpredict) / 60;
+                    v_remain_time = v_remain_time > 0 ? v_remain_time : 0;
+                }
+                bat->tick_vpredict = current_second;
+                bat->last_voltage = bat->voltage;
             }
-            bat->tick_vpredict = current_second;
-            bat->last_voltage = bat->voltage;
-        }
 
-        // coulomb predict
-        if (bat->last_level == 0) {
-            bat->last_level = bat->level;
-            bat->tick_lpredict = current_second;
-        } else {
-            if (current_second - bat->tick_lpredict >= 30) {
-                bat->coulomb_per_prd = (bat->last_level - bat->level + 1e-3) / (current_second - bat->tick_lpredict);
-                temp = temp <= 0 ? 0 : temp / 3;
-                cur = cur > 9 ? 9 : cur;
-                cur = cur < 0 ? 0 : cur;
-                if (bat->level < bat->red_line[temp][cur])
-                    l_remain_time = v_remain_time;
-                else {
-                    l_remain_time = (bat->level - bat->red_line[temp][cur]) / bat->coulomb_per_prd / 60;
-                    l_remain_time = l_remain_time > 0 ? l_remain_time : 0;                                  // when GC is off and battery power is low, the level is lower than 3000 but voltage is higher than 11V
-                    bat->last_level = bat->level;
-                    bat->tick_lpredict = current_second;
+            // coulomb predict
+            if (bat->coulomb_per_prd != 0) {
+                l_remain_time = (bat->level - bat->red_line[temp][cur]) / bat->coulomb_per_prd / 60;
+                l_remain_time = l_remain_time > 0 ? l_remain_time : 0;                                          // when GC is off and battery power is low, the level is lower than 3000 but voltage is higher than 11V
+            }
+
+            // update remain time
+            if (remain_time >= 0) {
+                if (v_remain_time == -1)
+                    remain_time = -1;
+                else if (bat->voltage > 11) {
+                    remain_time = v_remain_time * exp(11 - bat->voltage) + l_remain_time * (1 - exp(11 - bat->voltage));
+                } else {
+                    remain_time = v_remain_time;
                 }
             }
+
+        } else if (bat->mux_on == false && remain_time >= 0) {                                                  // bat is not used but to merge remain-time
+            if (bat->substitute->status == kstsFloat && bat->substitute->mux_on == true && bat->substitute->coulomb_per_prd != 0) {
+                if (bat->substitute->coulomb_per_prd != 0) {
+                    remain_time = (bat->level - bat->red_line[temp][cur]) / bat->substitute->coulomb_per_prd / 60;
+                    remain_time = remain_time >= 0 ? remain_time : 0;
+                }
+            } else {
+                remain_time = (bat->level - bat->red_line[temp][cur]) / FieldCase.consumption / 1000 * 60;      // mAh / Amps / 1000 * 60minutes
+                remain_time = remain_time < 0 ? 0 : remain_time;
+            }
         }
-        // update remain time
-        if (bat->remain_time >= 0) {
-            bat->remain_time  = (bat->voltage > 11 && bat->level > 5000) ? l_remain_time : v_remain_time;
-            if (bat->remain_time < 0)
-                BatteryDataSave(bat);
-        }
-    } else {                                                                                                // bat is not used but to merge remain-time
-        if (bat->remain_time > 0 && bat->substitute->coulomb_per_prd != 0) {
-            temp = temp <= 0 ? 0 : temp / 3;
-            cur = cur > 9 ? 9 : cur;
-            cur = cur < 0 ? 0 : cur;
-            bat->remain_time = (bat->level - bat->red_line[temp][cur]) / bat->substitute->coulomb_per_prd / 60;
-            bat->remain_time = bat->remain_time >= 0 ? bat->remain_time : 0;
-        }
+    } else if (bat->status >= kstsPreCharge) {                                                                  // bat is charging
+        temp = temp <= 0 ? 0 : temp / 3;
+        cur = cur > 9 ? 9 : cur;
+        cur = cur < 0 ? 0 : cur;
+        remain_time = (bat->level - bat->red_line[temp][cur]) / FieldCase.consumption / 1000 * 60;              // mAh / Amps / 1000 * 60minutes
+        remain_time = remain_time < 0 ? 0 : remain_time;
+    } else {
+        remain_time = -1;
+        bat->coulomb_per_prd = 0;
     }
+
+    if (remain_time < 0 && bat->remain_time >= 0) {
+        bat->remain_time = remain_time;
+        BatteryDataSave(bat);
+    } else
+        bat->remain_time = remain_time;
 }
 
 static bool CheckFaulty(stBattery *bat)
@@ -437,7 +493,7 @@ static int8_t CanBeCharged(stBattery *bat)
 static int8_t CheckFastChargeStop(stBattery *bat)
 {
     // protection related
-    if (bat->voltage > CHARGE_STOP_TH_VOLT + (25 - FieldCase.env_temperature) * 0.01)
+    if (bat->voltage > CHARGE_STOP_TH_VOLT + (25 - FieldCase.env_temperature) * 0.01 && bat->current > 3)
         return 2;
 
     if (bat->fastcharge_timer <= 0)
@@ -828,17 +884,13 @@ void Battery_HwInit(void)
 
 void Thread_BatteryInfoUpdate(stBattery *battery)
 {
-    uint32_t current_second;
     uint16_t adccode;
     int8_t acr_ofuf;
     HAL_StatusTypeDef ret;
-    uint32_t tick_volt_sample = 0;  // tick to sample volt every 1s
 
     xprintf("thread_bat%dinfo start\n\r", battery->index);
 
     while (1) {
-        current_second = GetSecond();
-
         if (battery->index == 0 || battery->index > 2) {
             xprintf("bat_infoupdate:wrong index %d\n\r", battery->index);
             vTaskDelete(NULL);
@@ -896,16 +948,8 @@ void Thread_BatteryInfoUpdate(stBattery *battery)
         battery->level = battery->gauge->level >= 0 ? battery->gauge->level : 0;
         RemainTimePredict(battery);
         CheckFaulty(battery);
-
-        if (battery->volt_sample == 0) {                                        // means battery just start to use, haven't record last sample voltage
-            battery->volt_sample = battery->voltage;
-            tick_volt_sample = current_second;
-        } else if (battery->i_transit_up >= tick_volt_sample || battery->i_transit_down >= tick_volt_sample) {    // this judgement cannot be implement when load transit happens
-            battery->volt_sample = 0;
-        } else if (current_second - tick_volt_sample >= 5) {
-            tick_volt_sample = current_second;
-            battery->volt_sample = battery->voltage;
-        }
+        GetSampleVolt(battery);
+        GetQDrop(battery);
     }
 }
 
@@ -945,7 +989,7 @@ void Thread_BatterySupplyControl(stBattery *bat)
                         // todo: set flag at i_transit_down
                         xprintf("BatterySupplyControl(): battery_%d capacity is low, switch to battery_%d\n\r", bat->index, bat->substitute->index);
                     }
-                    if (bat->volt_sample - bat->voltage >= 0.2) {
+                    if (bat->volt_sample - bat->voltage >= V_DROP_TH) {
                         printf("BatterySupplyControl(): rockerswitch off detect\n\r");
                     } else if (bat->remain_time >= 0) {
                         bat->remain_time = -1;

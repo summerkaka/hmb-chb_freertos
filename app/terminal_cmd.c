@@ -12,7 +12,10 @@
 #include "app_include.h"
 
 /* Private macro -------------------------------------------------------------*/
+#define REGISTER_CMD(a, b)  {#a, (void (*)(void*))b}
+
 #define CMD_SIZE 64
+
 
 /* Private typedef -----------------------------------------------------------*/
 typedef enum {
@@ -36,6 +39,7 @@ static void SupplyBat(void *arg);
 static void ResetMB(void *arg);
 static void ResetCCB(void *arg);
 static void Monitor(void *arg);
+static void CAN_Command(void *arg);
 
 extern uint8_t monitor_sw;
 
@@ -50,17 +54,18 @@ static uint8_t RxByte;
 //static bool dlf = 0;        // double link dlf
 
 static CmdTable_t cmd_table[]= {
-    {"fwver", WelcomePrint},
+    REGISTER_CMD(fwver, WelcomePrint),
     {"resetbattery", ResetBattery},
     {"togglered", ToggleRed},
     {"chargebat", ChargeBat},
     {"supplybat", SupplyBat},
     {"resetmb", ResetMB},
     {"resetccb", ResetCCB},
-    {"reset", (void (*)(void*))NVIC_SystemReset},
+    REGISTER_CMD(reset, NVIC_SystemReset),
     {"monitor", Monitor},
-    {"canmonitor", (void (*)(void*))CAN_MonitorSwitch},
-    {"can", (void (*)(void*))CAN_ManualSend},
+    REGISTER_CMD(canmonitor, CAN_MonitorSwitch),
+    REGISTER_CMD(can, CAN_Command),
+    REGISTER_CMD(cansend, CAN_ManualSend),
     {NULL, NULL},
 };
 
@@ -255,4 +260,26 @@ FINISH:
     }
 }
 
+/*
+ * format:  can  0xtarget  0xcmdnum  0xdlc   0xdata...
+ * example: can  0x0d      0x88      0x05    0x02 0x08 0x00 0x00 0x00
+ */
+static void CAN_Command(void *arg)
+{
+    stCanPacket msg;
+    uint8_t i;
+    char *p = arg;
 
+    msg.id.field.Src = 0x01;
+    msg.id.field.Target = strtol(p, &p, 0);
+
+    msg.id.field.CmdNum = strtol(p, &p, 0);
+
+    msg.dlc = strtol(p, &p, 0);
+    msg.dlc = msg.dlc >= 8 ? 8 : msg.dlc;
+
+    for (i = 0; i < msg.dlc; i++) {
+        msg.data[i] = strtol(p, &p, 0);
+    }
+    xQueueSendToFront(q_canmsg, &msg, portMAX_DELAY);
+}
