@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file    Project/src/command.c
+  * @file    Project/src/console_app.c
   * @author
   * @version V0.00
   * @date
@@ -31,7 +31,7 @@ typedef struct {
 
 
 /* Private function prototypes -----------------------------------------------*/
-static void WelcomePrint(void *);
+static void PrintVersion(void *arg);
 static void ResetBattery(void *arg);
 static void ToggleRed(void *arg);
 static void ChargeBat(void *arg);
@@ -40,8 +40,6 @@ static void ResetMB(void *arg);
 static void ResetCCB(void *arg);
 static void Monitor(void *arg);
 static void CAN_Command(void *arg);
-
-extern uint8_t monitor_sw;
 
 
 /* Private variables ---------------------------------------------------------*/
@@ -54,7 +52,7 @@ static uint8_t RxByte;
 //static bool dlf = 0;        // double link dlf
 
 static CmdTable_t cmd_table[]= {
-    REGISTER_CMD(fwver, WelcomePrint),
+    REGISTER_CMD(fwver, PrintVersion),
     {"resetbattery", ResetBattery},
     {"togglered", ToggleRed},
     {"chargebat", ChargeBat},
@@ -71,9 +69,9 @@ static CmdTable_t cmd_table[]= {
 
 
 /* Code begin ----------------------------------------------------------------*/
-static void WelcomePrint(void *arg)
+static void PrintVersion(void *arg)
 {
-    xprintf("hummingbird charge board v%.2f 2019-06-13\n\r", fw_version);
+    xprintf("xRTOS v%.2f 2019-08-29\n\r", fw_version);
     // xprintf("size of size_t: %d\n\r", sizeof(size_t));                           // answer is '4'
 }
 
@@ -128,9 +126,11 @@ static void SupplyBat(void *arg)
 
 static void Monitor(void *arg)
 {
-    uint8_t *argument = (uint8_t *)arg;
+    char *stopstring;
+    uint32_t interval_ms = strtol(arg, &stopstring, 0);
+    interval_ms *= 1000;
 
-    monitor_sw = *argument == '0' ? 0 : 1;
+    xTaskNotify(xTaskGetHandle("debubprint"), interval_ms, eSetValueWithOverwrite);
 }
 
 static void Console_Listen(void)

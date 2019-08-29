@@ -1205,6 +1205,12 @@
                 <name>$PROJ_DIR$\..\app\can_app.c</name>
             </file>
             <file>
+                <name>$PROJ_DIR$\..\app\console.c</name>
+            </file>
+            <file>
+                <name>$PROJ_DIR$\..\app\console_app.c</name>
+            </file>
+            <file>
                 <name>$PROJ_DIR$\..\app\eeprom.c</name>
             </file>
             <file>
@@ -1227,9 +1233,6 @@
             </file>
             <file>
                 <name>$PROJ_DIR$\..\app\sdadc_app.c</name>
-            </file>
-            <file>
-                <name>$PROJ_DIR$\..\app\terminal_cmd.c</name>
             </file>
         </group>
         <group>
@@ -1281,9 +1284,6 @@
             </file>
             <file>
                 <name>$PROJ_DIR$\..\Inc\sdadc_app.h</name>
-            </file>
-            <file>
-                <name>$PROJ_DIR$\..\app\uart_printf.c</name>
             </file>
         </group>
     </group>

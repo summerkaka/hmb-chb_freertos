@@ -1,4 +1,4 @@
-eeprom.pbi: \
+uart_printf.pbi: \
   C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\..\bsp\usart.h \
   C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\..\bsp\stm32f3xx_it.h \
   C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\..\bsp\sdadc.h \
@@ -89,4 +89,4 @@ eeprom.pbi: \
   C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\..\Drivers\STM32F3xx_HAL_Driver\Inc\stm32f3xx_hal_rcc.h \
   C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\..\bsp\stm32f3xx_hal_conf.h \
   C:\03_workspace\iar\hummingbird\hmb-chb_freertos\EWARM\..\Inc\app_include.h \
-  C:\03_workspace\iar\hummingbird\hmb-chb_freertos\app\eeprom.c
+  C:\03_workspace\iar\hummingbird\hmb-chb_freertos\app\uart_printf.c

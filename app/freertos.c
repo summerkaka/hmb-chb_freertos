@@ -217,6 +217,10 @@ uint32_t GetMinute(void)
   */
 void MX_FREERTOS_Init(void)
 {
+    printf("************************************************\n\r"
+           "********    xRTOS v%.2f  2019-08-29     ********\n\r"
+           "************************************************\n\r", fw_version);
+
     /* Create the mutex(es) */
     /* definition and creation of mutex_iic0 */
     osMutexDef(mutex_iic0);
@@ -292,11 +296,20 @@ void DebugTask(void *argument)
     void *pWriteBuffer;
     stBattery *bat = &Battery_1;
     uint32_t second;
+    uint32_t recv_data = 0;
+    uint32_t interval = 0;
 
     /* USER CODE BEGIN StartDefaultTask */
     while (1)
     {
-        if (monitor_sw == true && (pWriteBuffer = pvPortMalloc(500)) != NULL) {
+        if (pdTRUE == xTaskNotifyWait(0x00,          /* Don't clear any notification bits on entry. */
+                                      0xffffffffu,   /* Reset the notification value to 0 on exit. */
+                                      &recv_data,    /* Notified value pass out in
+                                                        ulNotifiedValue. */
+                                      5/portTICK_PERIOD_MS ))  /* Block indefinitely. */
+            interval = (recv_data < 5000 && recv_data != 0) ? 5000 : recv_data;
+
+        if (interval != 0 && (pWriteBuffer = pvPortMalloc(500)) != NULL) {
             second = GetSecond();
             xprintf("runtime: %ds\n\r", second);
             vTaskList(pWriteBuffer);
@@ -325,9 +338,9 @@ void DebugTask(void *argument)
             xprintf("|Adapter| %d\t| %.2f\t| %8d\t| %8d\t|\n\r", Adaptor.status, Adaptor.voltage, Adaptor.connect_time, Adaptor.disconnect_time);
             xprintf("==========================================================================================================================\n\r");
             xprintf("\n\n\r");
+            osDelay(interval);
         }
-        osDelay(5000);
     }
 }
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+

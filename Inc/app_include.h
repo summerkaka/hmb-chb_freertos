@@ -93,6 +93,10 @@ do {                                                                            
 extern const float fw_version;
 extern uint32_t run_cycle;
 
+
+/* Exported variables ------------------------------------------------------- */
+__no_init uint32_t update_request @0x20000000;
+
 extern osMutexId mutex_iic0Handle;
 extern osMutexId mutex_iic1Handle;
 extern osMutexId mutex_printfHandle;
@@ -105,11 +109,6 @@ extern TimerHandle_t timer_pump2_start;
 extern TimerHandle_t timer_pump2_stop;
 extern TimerHandle_t timer_pvalve_start;
 extern TimerHandle_t timer_pvalve_stop;
-
-
-/* Exported variables ------------------------------------------------------- */
-__no_init uint32_t update_request @0x20000000;
-extern const float fw_version;
 
 
 /* Exported functions ------------------------------------------------------- */

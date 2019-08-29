@@ -111,7 +111,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
     __HAL_RCC_TIM18_CLK_ENABLE();
 
     /* TIM18 interrupt Init */
-    HAL_NVIC_SetPriority(TIM18_DAC2_IRQn, 5, 0);
+    HAL_NVIC_SetPriority(TIM18_DAC2_IRQn, 10, 0);
     HAL_NVIC_EnableIRQ(TIM18_DAC2_IRQn);
   /* USER CODE BEGIN TIM18_MspInit 1 */
 
