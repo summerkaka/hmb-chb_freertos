@@ -1090,8 +1090,9 @@ void Thread_CANComm(void *p)
                     i += 2;
                     buf[i++] = ' ';
                 }
+                buf[i] = '\0';
                 xprintf("%s\n\r", buf);
-                memset(&buf[5], 0, 27);
+                memset(&buf[5], 0, i-5+1);
             }
             latest_time_stamp = GetSecond();
         }

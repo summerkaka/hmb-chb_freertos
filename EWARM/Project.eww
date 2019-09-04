@@ -3,8 +3,5 @@
     <project>
         <path>$WS_DIR$\app.ewp</path>
     </project>
-    <project>
-        <path>$WS_DIR$\..\..\..\hmb-chb_freertos-master\EWARM\app.ewp</path>
-    </project>
     <batchBuild />
 </workspace>

@@ -263,7 +263,7 @@ void MX_FREERTOS_Init(void)
     // q_canmsgHandle = osMessageCreate(osMessageQ(q_canmsg), NULL);
 
     /* add queues, ... */
-    q_canmsg = xQueueCreate(32, sizeof(CANMsg_t));
+    q_canmsg = xQueueCreate(32, sizeof(stCanPacket));
 
     /* Create the thread(s) */
     // all threads and init-app are created in daemon task

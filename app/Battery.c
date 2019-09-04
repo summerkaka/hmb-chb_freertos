@@ -351,7 +351,7 @@ static void RemainTimePredict(stBattery *bat)
         bat->last_level = 0;
     }
 
-    if (bat->status == kstsFloat) {
+    if (bat->status == kstsFloat || bat->status == kstsFinish) {
         if (bat->mux_on == true) {                                                                          // battery is supplying
             // volt predict
             if (bat->last_voltage == 0 ||                                                                       // means battery just start to use, haven't record last sample voltage
