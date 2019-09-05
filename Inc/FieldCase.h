@@ -74,7 +74,7 @@ typedef struct {
 extern stFieldCase FieldCase;
 extern bool need_dual_bat;
 extern bool back_cur_detect;
-extern bool low_power_flag;
+extern bool bat_low_pwr;
 extern uint32_t low_power_time;
 extern eBootMode gc_status;
 extern int32_t total_bat_time;

@@ -52,7 +52,7 @@ static uint32_t     back_cur_time   = 0;
 static uint32_t     high_cur_time   = 0;
 static uint32_t     cb_drop_time    = 0;
 uint32_t            low_power_time  = 0;
-bool                low_power_flag  = false;
+bool                bat_low_pwr  = false;
 eBootMode           gc_status       = kGcOff;
 int32_t             total_bat_time  = 0;
 int32_t             total_bat_percent = 0;
@@ -72,7 +72,7 @@ static void TurnOnGc(void)
     DioSetTo(&CCB_Pwr, 1);
     DioSetTo(&Fan, 1);
     gc_status = kGcRun;
-    xprintf("TurnOnGc(): turn on GC\n\r");
+    xprintf("TurnOnGc()\n\r");
 }
 
 /**
@@ -85,7 +85,7 @@ static void FastBootGc(void)
     DioSetTo(&MB_Pwr, 1);
     DioSetTo(&CCB_Pwr, 0);
     gc_status = kGcFastBoot;
-    xprintf("FastBootGc(): \n\r");
+    xprintf("FastBootGc()\n\r");
 }
 
 /**
@@ -99,7 +99,7 @@ void TurnOffGc(void *p)
     DioSetTo(&CCB_Pwr, 0);
     DioSetTo(&Fan, 0);
     gc_status = kGcOff;
-    xprintf("TurnOffGc(): turn off GC\n\r");
+    xprintf("TurnOffGc()\n\r");
 }
 
 void Thread_FieldcaseInfoUpdate(void *p)
@@ -153,18 +153,18 @@ void Thread_FieldcaseInfoUpdate(void *p)
             if (need_dual_bat == true) {
                 need_dual_bat = false;
                 high_cur_time = 0;
-                xprintf("FieldCaseInofUpdate(): adaptor connected, dualbat mode off\n\r");
+                xprintf("fieldcase: adaptor connected, dualbat mode off\n\r");
             }
-            low_power_flag = false;
+            bat_low_pwr = false;
         } else if (FieldCase.consumption >= DUAL_CUR) {                             // turn on dual_bat mode as soon as detecting high consumption
             if (need_dual_bat == false && back_cur_detect == false) {
                 need_dual_bat = true;
                 dual_start_time = GetSecond();
-                xprintf("FieldCaseInofUpdate(): consumption is %.3f, dualbat mode on\n\r", FieldCase.consumption);
+                xprintf("fieldcase: consumption is %.3f, dualbat mode on\n\r", FieldCase.consumption);
             } else if (need_dual_bat == true) {
                 if (((Battery_1.current > 0.1 && Battery_1.mux_on == true) || (Battery_2.current > 0.1 && Battery_2.mux_on == true)) &&
                         GetSecond() - dual_start_time > 3) {
-                    xprintf("FieldCaseInfoUpdate(): back current detect, dualbat mode off\n\r");
+                    xprintf("fieldcase: back current detect, dualbat mode off\n\r");
                     need_dual_bat = false;
                     back_cur_detect = true;
                     back_cur_time = GetMinute();
@@ -176,14 +176,14 @@ void Thread_FieldcaseInfoUpdate(void *p)
                 high_cur_time = 0;
                 if (need_dual_bat == true) {
                     need_dual_bat = false;
-                    xprintf("FieldCaseInfoUpdate(): consumption is %.3f, dualbat mode off\n\r", FieldCase.consumption);
+                    xprintf("fieldcase: consumption is %.3f, dualbat mode off\n\r", FieldCase.consumption);
                 }
             }
         }
 
         if (back_cur_detect == true && GetMinute() - back_cur_time > 5) {
             back_cur_detect = false;
-            xprintf("FieldCaseInfoUpdate(): clear back_cur_detect\n\r");
+            xprintf("fieldcase: clear back_cur_detect\n\r");
         }
 
         adc_code = sd1_gain_coe * (sdadc1_code[SDADC1_CHNL_GAS1] + 32767);
@@ -234,12 +234,12 @@ void Thread_GcPwrCntl(void *p)
     xprintf("thread_gcpwrcntl start\n\r");
 
     while(1) {
-        if (Adaptor.status != kAdaptorNotExist && Battery_1.status > kstsError && Battery_2.status > kstsError)
-            low_power_flag = false;
+        if (Adaptor.status != kAdaptorNotExist && (Battery_1.status > kstsError || Battery_2.status > kstsError))
+            bat_low_pwr = false;
 
         if (gc_status == kGcOff) {
             if (power_button == OFF && FieldCase.is_switchon) {
-                if (low_power_flag == false || Adaptor.status != kAdaptorNotExist) {
+                if (bat_low_pwr == false || Adaptor.status != kAdaptorNotExist) {
                     TurnOnGc();
                 }
                 power_button = ON;
@@ -247,7 +247,7 @@ void Thread_GcPwrCntl(void *p)
                 power_button = OFF;
 
             if (cover == OFF && FieldCase.is_covered == false) {
-                if (low_power_flag == false || Adaptor.status != kAdaptorNotExist) {
+                if (bat_low_pwr == false || Adaptor.status != kAdaptorNotExist) {
                     if (power_button == ON)
                         TurnOnGc();
                     else
@@ -264,7 +264,7 @@ void Thread_GcPwrCntl(void *p)
                     low_power_time = GetSecond();
                 } else if (GetSecond() - low_power_time >= 7) {
                     TurnOffGc(NULL);
-                    low_power_flag = true;
+                    bat_low_pwr = true;
                 }
             } else
                 low_power_time = 0;
@@ -285,7 +285,7 @@ void Thread_GcPwrCntl(void *p)
             if (GetSecond() - FieldCase.lid_on_time >= 300)
                 TurnOffGc(NULL);
 
-            if (power_button == OFF && FieldCase.is_switchon == true && low_power_flag == false) {
+            if (power_button == OFF && FieldCase.is_switchon == true && bat_low_pwr == false) {
                 TurnOnGc();
                 power_button = ON;
             }
@@ -300,7 +300,7 @@ void Thread_GcPwrCntl(void *p)
                     low_power_time = GetSecond();
                 } else if (GetSecond() - low_power_time >= 7) {
                     TurnOffGc(NULL);
-                    low_power_flag = true;
+                    bat_low_pwr = true;
                 }
             } else
                 low_power_time = 0;
@@ -355,7 +355,7 @@ void Thread_Led_Blink(void *p)
     while (1) {
         if (Battery_1.status == kstsError || Battery_2.status == kstsError) {
             HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
-        } else if (low_power_flag) {
+        } else if (bat_low_pwr) {
             HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
         } else {
             HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_RESET);

@@ -181,6 +181,8 @@ void vApplicationDaemonTaskStartupHook(void)
     xTaskCreate((TaskFunction_t)Thread_BatteryChargeControl, "batchg2", 256, &Battery_2, osPriorityNormal, NULL);
     xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply1", 256, &Battery_1, osPriorityNormal, NULL);
     xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply2", 256, &Battery_2, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryPredict, "batpredict1", 256, &Battery_1, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryPredict, "batpredict2", 256, &Battery_2, osPriorityNormal, NULL);
     xTaskCreate(DebugTask, "debubprint", 256, NULL, osPriorityNormal, NULL);
     xTaskCreate(BatteryDataLog, "batlog", 256, NULL, osPriorityNormal, NULL);
     xTaskCreate(Thread_CANComm, "CANbus", 256, NULL, osPriorityAboveNormal, NULL);
@@ -309,7 +311,7 @@ void DebugTask(void *argument)
                                       5/portTICK_PERIOD_MS ))  /* Block indefinitely. */
             interval = (recv_data < 5000 && recv_data != 0) ? 5000 : recv_data;
 
-        if (interval != 0 && (pWriteBuffer = pvPortMalloc(500)) != NULL) {
+        if (interval != 0 && (pWriteBuffer = pvPortMalloc(600)) != NULL) {
             second = GetSecond();
             xprintf("runtime: %ds\n\r", second);
             vTaskList(pWriteBuffer);
@@ -325,9 +327,9 @@ void DebugTask(void *argument)
             bat = &Battery_2;
             xprintf("|bat%d\t| %d\t| %d\t| %d\t| %.0f\t| %.2f\t| %.2f\t| %.2f\t| %.0f\t| %.0f\t| 0x%02x\t| %.2f\t| %d\t| %d\t| %d\t|\n\r", bat->index, bat->mode, bat->status, bat->mux_on, bat->gauge->level, bat->voltage, bat->current, bat->temperature, bat->capacity, bat->remain_time, bat->err_code, bat->charge_iset, bat->finish_code, bat->scale_flag, bat->gauge->acr_ofuf);
             xprintf("==========================================================================================================================\n\r");
-            xprintf("|HEATER\t| status| mode\t| T\t| sp\t| kp\t| ki\t| kd\t| duty\t|\n\r");
+            xprintf("|HEATER\t| status| mode\t| T\t| sp\t| duty\t|\n\r");
             xprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
-            xprintf("|heater\t| %d\t| %d\t| %.3f\t| %.2f\t| %d\t| %d\t| %d\t| %.3f\t|\n\r", heater.pwm.status, heater.mode, heater.temperature, heater.setpoint, heater.kp, heater.ki, heater.kd, heater.pwm.duty);
+            xprintf("|heater\t| %d\t| %d\t| %.3f\t| %.2f\t| %.3f\t|\n\r", heater.pwm.status, heater.mode, heater.temperature, heater.setpoint, heater.pwm.duty);
             xprintf("==========================================================================================================================\n\r");
             xprintf("|Fdcase\t| v_pwr\t| i_pwr\t| cover\t| gc_sw\t| p_gas1| p_gas2| GcSts\t| lopwr\t|canintr|msghandle|\n\r");
             xprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
