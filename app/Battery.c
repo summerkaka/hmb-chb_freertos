@@ -144,7 +144,7 @@ static void ChargeOff(stBattery *battery, uint8_t option)
     HAL_GPIO_WritePin(battery->charge_port, battery->charge_pin, GPIO_PIN_RESET);
     SetChargeCurrent(battery, 0);
 
-    printf("charge off bat_%d, status %d\n\r", battery->index, battery->status);
+    xprintf("charge off bat_%d, status %d\n\r", battery->index, battery->status);
     if (battery->status == kstsFastCharge) {
         battery->charge_finish_time = GetMinute();
         battery->peak_volt = 0;
@@ -283,19 +283,19 @@ static void Calibrate(stBattery *bat, eCheckMode mode)
         bat->is_aged = true;
 }
 
-static bool CheckFaulty(stBattery *bat)
+static uint16_t CheckFaulty(stBattery *bat)
 {
     if (bat->status >= kstsPreCharge && GetSecond() - bat->i_transit_down > 3 && GetSecond() - Adaptor.disconnect_time >= 3) {  // only check when charging
 
         if (bat->current < 0.2) {
-            osDelay(10);
+            osDelay(2000);
             if (bat->current < 0.2) {
                 xprintf("CheckFaulty(): bat_%d current: %.2f, voltage: %.2f\n\r", bat->index, bat->current, bat->voltage);
                 ErrorHandler(bat, CELL_OPEN);
             }
         }
         if (bat->peak_volt - bat->voltage >= DROP_VOLTAGE) {
-            osDelay(3);
+            osDelay(2000);
             if (bat->peak_volt - bat->voltage >= DROP_VOLTAGE) {
                 xprintf("CheckFaulty(): bat_%d peak_v: %.2f, v: %.2f, i_transit_down time: %d, current second: %d\n\r", bat->index, bat->peak_volt, bat->voltage, bat->i_transit_down, GetSecond());
                 ErrorHandler(bat, CELL_SHORT);
@@ -317,7 +317,7 @@ static bool CheckFaulty(stBattery *bat)
     }
 
     if (bat->temperature < -100) {
-        osDelay(5);
+        osDelay(1000);
         if (bat->temperature < -100) {
             ErrorHandler(bat, NTC_OPEN);
         }

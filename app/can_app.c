@@ -672,7 +672,7 @@ ContactHandler(const stCanPacket *pcmd)
 static void
 UnknownCmdHandler(const stCanPacket *pcmd)
 {
-    printf("unkonw cmd_num : %02x", pcmd->id.field.CmdNum);
+    xprintf("unkonw cmd_num : %02x", pcmd->id.field.CmdNum);
 }
 
 static void

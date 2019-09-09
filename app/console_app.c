@@ -236,7 +236,7 @@ void Thread_Console(void *param)
         }
 
         if (uart_sts == kConsoleCplt) {
-            printf("console receive: %s\n\r", cmd_msg);
+            xprintf("console receive: %s\n\r", cmd_msg);
             i = 0;
             while (cmd_table[i].s != NULL) {
                 p = cmd_msg;
