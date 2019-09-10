@@ -39,6 +39,7 @@
 osMutexId mutex_iic0Handle;
 osMutexId mutex_iic1Handle;
 osMutexId mutex_printfHandle;
+osMutexId mtx_batctrl;
 osSemaphoreId sem_consoleHandle;
 osSemaphoreId csemHandle;
 QueueHandle_t q_canmsg;
@@ -237,7 +238,7 @@ void MX_FREERTOS_Init(void)
     mutex_printfHandle = osMutexCreate(osMutex(mutex_printf));
 
     /* add mutexes, ... */
-
+    mtx_batctrl = xSemaphoreCreateMutex();
     /* Create the semaphores(s) */
     /* definition and creation of sem_console */
     // osSemaphoreDef(sem_console);

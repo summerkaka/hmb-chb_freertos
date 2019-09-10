@@ -483,30 +483,26 @@ static HAL_StatusTypeDef BatteryInfoInit(stBattery *battery)
         ret = Init_LTC2943(battery->gauge, battery->iic_mutex);
     } while (ret == HAL_BUSY);
 
-    if (ret == HAL_ERROR) {
+    if (ret != HAL_OK) 
         ErrorHandler(battery, GAUGE_FAIL);
-        return ret;
-    }
-
+    
     osDelay(64);                                                                // wait for one conv after init
 
-    ret = HAL_ERROR;
-    for (i = 0; i < 3 && ret != HAL_OK; i++)
+    do {
         ret = Get_Gauge_Information(battery->gauge, battery->iic_mutex);
-    if (i == 3) {
+    } while (ret == HAL_BUSY);
+
+    if (ret != HAL_OK)
         ErrorHandler(battery, GAUGE_FAIL);
-        return ret;
-    }
 
     battery->voltage = battery->gauge->voltage;
-
     battery->current = battery->gauge->current;
 
     xprintf("batinit(%d): load data from eeprom...\n\r", battery->index);
     if (BatteryDataLoad(battery) == HAL_OK) {                                   // information is stored in EEPROM and load successfully
-
         xprintf("ok\n\r");
-
+        battery->capacity = battery->capacity < 5000 ? 5000 : battery->capacity;
+        
         if (battery->level > 24000 || battery->level < -2000) {
             xprintf("batinit(%d): load level %.0f is abnormal\n\r", battery->index, battery->level);
             goto INITIALIZE_LEVEL;
@@ -516,10 +512,8 @@ static HAL_StatusTypeDef BatteryInfoInit(stBattery *battery)
             ret = LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex);
         } while (ret == HAL_BUSY);
 
-        if (ret == HAL_ERROR) {
-            battery->status = kstsError;
-            battery->err_code = GAUGE_FAIL;
-        }
+        if (ret != HAL_OK) 
+            ErrorHandler(battery, GAUGE_FAIL);
 
         return ret;
     } else
@@ -547,10 +541,10 @@ INITIALIZE_LEVEL:                                                               
     do {
         ret = LTC2943_Write_mAh(battery->gauge, battery->level, battery->iic_mutex);
     } while (ret == HAL_BUSY);
-    if (ret == HAL_ERROR) {
-        battery->err_code = GAUGE_FAIL;
-        battery->status = kstsError;
-    }
+
+    if (ret != HAL_OK) 
+        ErrorHandler(battery, GAUGE_FAIL);
+    
     return ret;
 }
 
@@ -672,7 +666,7 @@ void BatterySupplyCmdHandler(stBattery *bat, bool request)
     }
 }
 
-void Thread_BatteryInfoUpdate(stBattery *battery)
+void Thread_BatteryMonitor(stBattery *battery)
 {
     uint16_t adccode;
     int8_t acr_ofuf;
@@ -710,10 +704,17 @@ void Thread_BatteryInfoUpdate(stBattery *battery)
             ret = Get_Gauge_Information(battery->gauge, battery->iic_mutex);
         } while (ret == HAL_BUSY);
 
-        if (ret == HAL_ERROR) {
+        if (ret != HAL_OK) {
             ErrorHandler(battery, GAUGE_FAIL);
             continue;
         } else {
+            if (battery->gauge->control != (LTC2943_AUTOMATIC_MODE | LTC2943_PRESCALAR_M_1024 |LTC2943_DISABLE_ALCC_PIN)) {
+                if (Init_LTC2943(battery->gauge, battery->iic_mutex)) {
+                    ErrorHandler(battery, GAUGE_FAIL);
+                } 
+                continue;
+            }
+
             if (acr_ofuf != battery->gauge->acr_ofuf) {
                 xprintf("bat(%d): acr_ofuf is %d, level is %.0f\n\r", battery->index, battery->gauge->acr_ofuf, battery->gauge->level);
             }
@@ -933,11 +934,12 @@ void Thread_BatterySupplyControl(stBattery *bat)
 {
     xprintf("thread_bat%d supply start\n\r", bat->index);
 
+    if (bat->index == 0 || bat->index > 2) {
+        xprintf("bat(%d): wrong index\n\r", bat->index);
+        vTaskDelete(NULL);
+    }
+
     while (1) {
-        if (bat->index == 0 || bat->index > 2) {
-            xprintf("bat(%d): wrong index\n\r", bat->index);
-            vTaskDelete(NULL);
-        }
 
         if (bat->mux_on == true) {                                              // battery is supplying
             if (bat->status <= kstsError) {
@@ -947,7 +949,7 @@ void Thread_BatterySupplyControl(stBattery *bat)
                 }
                 SupplyOff(bat);
             } else {
-                if (bat->voltage <= (GC_STOP_TH_VOLT + (bat->voltage - FieldCase.v_syspwr)) && GetSecond() - bat->i_transit_down > 5) {     // capacity is low, and prevent spurious trigger
+                if (FieldCase.v_syspwr <= GC_STOP_TH_VOLT && GetSecond() - bat->i_transit_down > 5) {     // capacity is low, and prevent spurious trigger
                     if (bat->substitute->status <= kstsError) {                                         // only one bat is used
                         if (lo_pwr_beep == false) {
                             lo_pwr_beep = true;
@@ -958,14 +960,14 @@ void Thread_BatterySupplyControl(stBattery *bat)
                             lo_pwr_beep = true;
                             xprintf("bat(%d): both battery capacity are low\n\r", bat->index);
                         }
-                    } else {                                                        // another is available
+                    } else if (need_dual_bat == false) {                                                        // another is available
                         xprintf("bat(%d): capacity is low, switch to another\n\r", bat->index);
                         SupplyOn(bat->substitute);
                         osDelay(2);
                         SupplyOff(bat);
                         // todo: set flag at i_transit_down
                     }
-                    osDelay(5);         // if low voltage is caused by rocker switch off, below wrong calibration would not run
+                    osDelay(5000);         // if low voltage is caused by rocker switch off, below wrong calibration would not run
                     if (bat->remain_time >= 0) {
                         bat->remain_time = -1;
                         bat->scale_flag |= REACHBOTTOM;
@@ -973,11 +975,15 @@ void Thread_BatterySupplyControl(stBattery *bat)
                         bat->scale_flag &= ~REACHTOP;
                         BatteryDataSave(bat);
                     }
-                } else if (need_dual_bat == false && bat->substitute->mux_on == true) {
-                    if (bat->current >= bat->substitute->current) {
-                        xprintf("bat(%d): turn off for single mode\n\r", bat->index);
-                        SupplyOff(bat);
+                } else if (need_dual_bat == false) {
+                    xSemaphoreTake(mtx_batctrl, portMAX_DELAY);
+                    if (bat->substitute->mux_on == true) {
+                        if (bat->current > bat->substitute->current) {
+                            xprintf("bat(%d): turn off for single mode\n\r", bat->index);
+                            SupplyOff(bat);
+                        }
                     }
+                    xSemaphoreGive(mtx_batctrl);
                 }
             }
         } else if (bat->status > kstsError) {                                   // battery mux_on == false

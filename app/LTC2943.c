@@ -39,14 +39,12 @@ stGauge Gauge2 = {
 };
 
 /* Code begin ----------------------------------------------------------------*/
-static HAL_StatusTypeDef
-Read_LTC2943_Byte(const stGauge *gauge, uint8_t reg_addr, uint8_t *data)
+static HAL_StatusTypeDef Read_LTC2943_Byte(const stGauge *gauge, uint8_t reg_addr, uint8_t *data)
 {// The function returns the state of the acknowledge bit after the I2C address write. 0=acknowledge, 1=no acknowledge.
 	return HAL_I2C_Mem_Read(gauge->hi2c, LTC2943_DEVADDR, reg_addr, I2C_MEMADD_SIZE_8BIT, data, 1, 5);
 }
 
-static HAL_StatusTypeDef
-Read_LTC2943_Word(const stGauge *gauge, uint8_t reg_addr_high, uint16_t *data)
+static HAL_StatusTypeDef Read_LTC2943_Word(const stGauge *gauge, uint8_t reg_addr_high, uint16_t *data)
 {// The function returns the state of the acknowledge bit after the I2C address write. 0=acknowledge, 1=no acknowledge.
 	uint8_t buffer[2] = {0};
 	HAL_StatusTypeDef ret;
@@ -58,14 +56,12 @@ Read_LTC2943_Word(const stGauge *gauge, uint8_t reg_addr_high, uint16_t *data)
 	return ret;
 }
 
-static HAL_StatusTypeDef
-Write_LTC2943_Byte(const stGauge *gauge, uint8_t reg_addr, uint8_t data)
+static HAL_StatusTypeDef Write_LTC2943_Byte(const stGauge *gauge, uint8_t reg_addr, uint8_t data)
 {
 	return HAL_I2C_Mem_Write(gauge->hi2c, LTC2943_DEVADDR, reg_addr, I2C_MEMADD_SIZE_8BIT, &data, 1, 5);
 }
 
-static HAL_StatusTypeDef
-Write_LTC2943_Word(const stGauge *gauge, uint8_t reg_addr_high, uint16_t data)
+static HAL_StatusTypeDef Write_LTC2943_Word(const stGauge *gauge, uint8_t reg_addr_high, uint16_t data)
 {
 	uint8_t buffer[2];
 	buffer[1] = data & 0xff;
@@ -74,8 +70,7 @@ Write_LTC2943_Word(const stGauge *gauge, uint8_t reg_addr_high, uint16_t data)
 	return HAL_I2C_Mem_Write(gauge->hi2c, LTC2943_DEVADDR, reg_addr_high, I2C_MEMADD_SIZE_8BIT, buffer, 2, 5);
 }
 
-HAL_StatusTypeDef
-Init_LTC2943(stGauge *const gauge, osMutexId mutex)
+HAL_StatusTypeDef Init_LTC2943(stGauge *const gauge, osMutexId mutex)
 {
     //initialize Control register
     HAL_StatusTypeDef ret;
@@ -88,8 +83,7 @@ Init_LTC2943(stGauge *const gauge, osMutexId mutex)
     return ret;
 }
 
-HAL_StatusTypeDef
-LTC2943_Write_mAh(stGauge *gauge,float level, osMutexId mutex)
+HAL_StatusTypeDef LTC2943_Write_mAh(stGauge *gauge,float level, osMutexId mutex)
 {
     // uint16_t wdata = (uint16_t)(level / LTC2943_CHARGE_lsb / 50 * R_SENSE * 1000 / PRESCALAR * 4096);  // inv of code_to_mAh
     HAL_StatusTypeDef ret;
@@ -160,8 +154,7 @@ float LTC2943_code_to_celcius_temperature(uint16_t adc_code)
 	return (temperature);
 }
 
-HAL_StatusTypeDef
-Get_Gauge_Information(stGauge *gauge, osMutexId mutex)
+HAL_StatusTypeDef Get_Gauge_Information(stGauge *gauge, osMutexId mutex)
 {
     uint16_t data_short=0;
     uint8_t data_byte=0;

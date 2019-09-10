@@ -100,6 +100,7 @@ __no_init uint32_t update_request @0x20000000;
 extern osMutexId mutex_iic0Handle;
 extern osMutexId mutex_iic1Handle;
 extern osMutexId mutex_printfHandle;
+extern osMutexId mtx_batctrl;
 extern osSemaphoreId sem_consoleHandle;
 extern osSemaphoreId csemHandle;
 extern QueueHandle_t q_canmsg;
