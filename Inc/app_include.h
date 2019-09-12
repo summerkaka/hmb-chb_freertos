@@ -101,6 +101,7 @@ extern osMutexId mutex_iic0Handle;
 extern osMutexId mutex_iic1Handle;
 extern osMutexId mutex_printfHandle;
 extern osMutexId mtx_batctrl;
+extern osMutexId mtx_batchg;
 extern osSemaphoreId sem_consoleHandle;
 extern osSemaphoreId csemHandle;
 extern QueueHandle_t q_canmsg;

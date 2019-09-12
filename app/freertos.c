@@ -40,6 +40,7 @@ osMutexId mutex_iic0Handle;
 osMutexId mutex_iic1Handle;
 osMutexId mutex_printfHandle;
 osMutexId mtx_batctrl;
+osMutexId mtx_batchg;
 osSemaphoreId sem_consoleHandle;
 osSemaphoreId csemHandle;
 QueueHandle_t q_canmsg;
@@ -176,12 +177,12 @@ void vApplicationDaemonTaskStartupHook(void)
     xTaskCreate(Thread_FieldcaseInfoUpdate, "fieldcase", 256, NULL, osPriorityNormal, NULL);
     xTaskCreate(Thread_GcPwrCntl, "gc_pwr", 256, NULL, osPriorityNormal, NULL);
     xTaskCreate(Thread_CbPwrCntl, "cb_pwr", 256, NULL, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryInfoUpdate, "batinfo1", 256, &Battery_1, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryInfoUpdate, "batinfo2", 256, &Battery_2, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryChargeControl, "batchg1", 256, &Battery_1, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatteryChargeControl, "batchg2", 256, &Battery_2, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply1", 256, &Battery_1, osPriorityNormal, NULL);
-    xTaskCreate((TaskFunction_t)Thread_BatterySupplyControl, "batsply2", 256, &Battery_2, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryMonitor, "batmon1", 256, &Battery_1, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryMonitor, "batmon2", 256, &Battery_2, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryCharge, "batchg1", 256, &Battery_1, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatteryCharge, "batchg2", 256, &Battery_2, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatterySupply, "batsply1", 256, &Battery_1, osPriorityNormal, NULL);
+    xTaskCreate((TaskFunction_t)Thread_BatterySupply, "batsply2", 256, &Battery_2, osPriorityNormal, NULL);
     xTaskCreate((TaskFunction_t)Thread_BatteryPredict, "batpredict1", 256, &Battery_1, osPriorityNormal, NULL);
     xTaskCreate((TaskFunction_t)Thread_BatteryPredict, "batpredict2", 256, &Battery_2, osPriorityNormal, NULL);
     xTaskCreate(DebugTask, "debubprint", 256, NULL, osPriorityNormal, NULL);
@@ -221,7 +222,7 @@ uint32_t GetMinute(void)
 void MX_FREERTOS_Init(void)
 {
     printf("************************************************\n\r"
-           "********    xRTOS v%.2f  2019-08-29     ********\n\r"
+           "********    xRTOS v%.2f  2019-09-11     ********\n\r"
            "************************************************\n\r", fw_version);
 
     /* Create the mutex(es) */
@@ -239,6 +240,7 @@ void MX_FREERTOS_Init(void)
 
     /* add mutexes, ... */
     mtx_batctrl = xSemaphoreCreateMutex();
+    mtx_batchg =xSemaphoreCreateMutex();
     /* Create the semaphores(s) */
     /* definition and creation of sem_console */
     // osSemaphoreDef(sem_console);
@@ -313,34 +315,36 @@ void DebugTask(void *argument)
             interval = (recv_data < 5000 && recv_data != 0) ? 5000 : recv_data;
 
         if (interval != 0 && (pWriteBuffer = pvPortMalloc(600)) != NULL) {
+            osMutexWait(mutex_printfHandle, osWaitForever);
             second = GetSecond();
-            xprintf("runtime: %ds\n\r", second);
+            printf("runtime: %ds\n\r", second);
             vTaskList(pWriteBuffer);
-            xprintf("task_name task_state priority stack task_num\n\r");        // use 'debug()' here would cause i2c comm fail, i2c_isr_busy set
-            xprintf("%s", (char *)pWriteBuffer);
+            printf("task_name task_state priority stack task_num\n\r");        // use 'debug()' here would cause i2c comm fail, i2c_isr_busy set
+            printf("%s", (char *)pWriteBuffer);
             vPortFree(pWriteBuffer);
             bat = &Battery_1;
-            xprintf("==========================================================================================================================\n\r");
-            xprintf("|BATTERY| mode\t| status| used\t| level\t| V\t| I\t| T\t| cap.\t| remain| err\t| Iset\t| fcode\t| scale\t| ofuf\t|\n\r");
-            xprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
-            xprintf("|bat%d\t| %d\t| %d\t| %d\t| %.0f\t| %.2f\t| %.2f\t| %.2f\t| %.0f\t| %.0f\t| 0x%02x\t| %.2f\t| %d\t| %d\t| %d\t|\n\r", bat->index, bat->mode, bat->status, bat->mux_on, bat->gauge->level, bat->voltage, bat->current, bat->temperature, bat->capacity, bat->remain_time, bat->err_code, bat->charge_iset, bat->finish_code, bat->scale_flag, bat->gauge->acr_ofuf);
-            xprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
+            printf("==========================================================================================================================\n\r"
+                    "|BATTERY| mode\t| status| used\t| level\t| V\t| I\t| T\t| cap.\t| remain| err\t| Iset\t| fcode\t| scale\t| ng\t|\n\r"
+                    "--------------------------------------------------------------------------------------------------------------------------\n\r");
+            printf("|bat%d\t| %d\t| %d\t| %d\t| %.0f\t| %.2f\t| %.2f\t| %.2f\t| %.0f\t| %.0f\t| 0x%02x\t| %.2f\t| %d\t| %d\t| %.2f\t|\n\r", bat->index, bat->mode, bat->status, bat->mux_on, bat->gauge->level, bat->voltage, bat->current, bat->temperature, bat->capacity, bat->remain_time, bat->err_code, bat->charge_iset, bat->finish_code, bat->scale_flag, bat->ng);
             bat = &Battery_2;
-            xprintf("|bat%d\t| %d\t| %d\t| %d\t| %.0f\t| %.2f\t| %.2f\t| %.2f\t| %.0f\t| %.0f\t| 0x%02x\t| %.2f\t| %d\t| %d\t| %d\t|\n\r", bat->index, bat->mode, bat->status, bat->mux_on, bat->gauge->level, bat->voltage, bat->current, bat->temperature, bat->capacity, bat->remain_time, bat->err_code, bat->charge_iset, bat->finish_code, bat->scale_flag, bat->gauge->acr_ofuf);
-            xprintf("==========================================================================================================================\n\r");
-            xprintf("|HEATER\t| status| mode\t| T\t| sp\t| duty\t|\n\r");
-            xprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
-            xprintf("|heater\t| %d\t| %d\t| %.3f\t| %.2f\t| %.3f\t|\n\r", heater.pwm.status, heater.mode, heater.temperature, heater.setpoint, heater.pwm.duty);
-            xprintf("==========================================================================================================================\n\r");
-            xprintf("|Fdcase\t| v_pwr\t| i_pwr\t| cover\t| gc_sw\t| p_gas1| p_gas2| GcSts\t| lopwr\t|canintr|msghandle|\n\r");
-            xprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
-            xprintf("|fdcase\t| %.2f\t| %.2f\t| %d\t| %d\t| %.1f\t| %.1f\t| %d\t| %d\t| %d\t| %d\t|\n\r", FieldCase.v_syspwr, FieldCase.consumption, FieldCase.is_covered, FieldCase.is_switchon, FieldCase.gas_1_pressure, FieldCase.gas_2_pressure, gc_status, low_power_time, can_intr_cnt, msg_total_recv);
-            xprintf("==========================================================================================================================\n\r");
-            xprintf("|Adapter| sts\t| v\t| connecttime\t| disconntime\t|\n\r");
-            xprintf("--------------------------------------------------------------------------------------------------------------------------\n\r");
-            xprintf("|Adapter| %d\t| %.2f\t| %8d\t| %8d\t|\n\r", Adaptor.status, Adaptor.voltage, Adaptor.connect_time, Adaptor.disconnect_time);
-            xprintf("==========================================================================================================================\n\r");
-            xprintf("\n\n\r");
+            printf("--------------------------------------------------------------------------------------------------------------------------\n\r"
+                    "|bat%d\t| %d\t| %d\t| %d\t| %.0f\t| %.2f\t| %.2f\t| %.2f\t| %.0f\t| %.0f\t| 0x%02x\t| %.2f\t| %d\t| %d\t| %.2f\t|\n\r", bat->index, bat->mode, bat->status, bat->mux_on, bat->gauge->level, bat->voltage, bat->current, bat->temperature, bat->capacity, bat->remain_time, bat->err_code, bat->charge_iset, bat->finish_code, bat->scale_flag, bat->ng);
+            printf("==========================================================================================================================\n\r"
+                    "|HEATER\t| status| mode\t| T\t| sp\t| duty\t|\n\r"
+                    "--------------------------------------------------------------------------------------------------------------------------\n\r"
+                    "|heater\t| %d\t| %d\t| %.3f\t| %.2f\t| %.3f\t|\n\r", heater.pwm.status, heater.mode, heater.temperature, heater.setpoint, heater.pwm.duty);
+            printf("==========================================================================================================================\n\r"
+                    "|Fdcase\t| v_pwr\t| i_pwr\t| cover\t| gc_sw\t| p_gas1| p_gas2| GcSts\t| lopwr\t|canintr|msghandle|\n\r"
+                    "--------------------------------------------------------------------------------------------------------------------------\n\r"
+                    "|fdcase\t| %.2f\t| %.2f\t| %d\t| %d\t| %.1f\t| %.1f\t| %d\t| %d\t| %d\t| %d\t|\n\r", FieldCase.v_syspwr, FieldCase.consumption, FieldCase.is_covered, FieldCase.is_switchon, FieldCase.gas_1_pressure, FieldCase.gas_2_pressure, gc_status, low_power_time, can_intr_cnt, msg_total_recv);
+            printf("==========================================================================================================================\n\r"
+                    "|Adapter| sts\t| v\t| connecttime\t| disconntime\t|\n\r"
+                    "--------------------------------------------------------------------------------------------------------------------------\n\r"
+                    "|Adapter| %d\t| %.2f\t| %8d\t| %8d\t|\n\r", Adaptor.status, Adaptor.voltage, Adaptor.connect_time, Adaptor.disconnect_time);
+            printf("==========================================================================================================================\n\r"
+                    "\n\n\r");
+            osMutexRelease(mutex_printfHandle);
             osDelay(interval);
         }
     }

@@ -12,9 +12,9 @@
 #include "app_include.h"
 
 /* Private macro -------------------------------------------------------------*/
-#define ADAPT_CONN_TH      12
-#define ADAPT_DISCONN_TH    9
-#define ADAPT_OVERLOAD_TH   11.5
+#define ADAPT_CONN_TH       12
+#define ADAPT_DISCONN_TH    11
+#define ADAPT_OVERLOAD_TH   11.8
 #define HIGH_LOAD_AMPS      9
 #define LOW_LOAD_AMPS       6
 
@@ -55,21 +55,23 @@ void thread_adaptor(void *p)
                 Adaptor.connect_time = -1;
                 xprintf("Adaptor: disconnect, time: %d\n\r", Adaptor.disconnect_time);
             } else if (Adaptor.voltage <= ADAPT_OVERLOAD_TH) {
-                osDelay(3000);
-                if (Adaptor.voltage <= ADAPT_OVERLOAD_TH) {
-                    Adaptor.status = kAdaptorOverLoad;
-                    xprintf("Adaptor: overload, time: %d\n\r", current_second);
-                } else if (Adaptor.voltage <= ADAPT_DISCONN_TH) {
+                osDelay(1000);
+                Adaptor.voltage = (float)ADCvalue[ADC_ADAPTOR] * 0.003742;
+                if (Adaptor.voltage <= ADAPT_DISCONN_TH) {
                     Adaptor.status = kAdaptorNotExist;
                     xprintf("Adaptor: disconnect, time: %d\n\r", Adaptor.disconnect_time);
-                }
+                } else if (Adaptor.voltage <= ADAPT_OVERLOAD_TH) {
+                    Adaptor.status = kAdaptorOverLoad;
+                    xprintf("Adaptor: overload, time: %d\n\r", current_second);
+                } 
             }
         } else if (Adaptor.status == kAdaptorOverLoad) {
             // lock this flag
             if (FieldCase.consumption < 6 && Adaptor.voltage >= ADAPT_CONN_TH)
                 Adaptor.status = kAdaptorSupplying;
             else if (Adaptor.voltage <= ADAPT_DISCONN_TH) {
-                osDelay(3000);
+                osDelay(1000);
+                Adaptor.voltage = (float)ADCvalue[ADC_ADAPTOR] * 0.003742;
                 if (Adaptor.voltage <= ADAPT_DISCONN_TH) {
                     Adaptor.status = kAdaptorNotExist;
                     Adaptor.disconnect_time = current_second;

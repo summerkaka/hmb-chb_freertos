@@ -173,10 +173,10 @@ void Battery_HwInit(void);
 void BatterySupplyCmdHandler(stBattery *bat, bool request);
 void ChargeCmdhandler(stBattery *bat, bool request);
 
-void Thread_BatteryInfoUpdate(stBattery *battery);
+void Thread_BatteryMonitor(stBattery *battery);
 void Thread_BatteryPredict(stBattery *bat);
-void Thread_BatterySupplyControl(stBattery *battery);
-void Thread_BatteryChargeControl(stBattery *battery);
+void Thread_BatterySupply(stBattery *battery);
+void Thread_BatteryCharge(stBattery *battery);
 
 //#ifdef __cplusplus
 //}
