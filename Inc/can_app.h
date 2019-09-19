@@ -225,6 +225,7 @@ void CAN_Listen(void);
 void Thread_CANComm(void *);
 void CAN_MonitorSwitch(uint8_t *p);
 void CAN_ManualSend(uint8_t *);
+void Thread_CANPrint(uint8_t *);
 
 
 //#ifdef __cplusplus

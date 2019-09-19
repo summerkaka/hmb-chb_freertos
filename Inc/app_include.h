@@ -55,6 +55,7 @@
 #define BL_ADDRESS  0x08000000
 #define ON          1
 #define OFF         0
+#define UARTHANDLE  &huart1
 
 //#define offsetof(type, member) ((size_t) &((type *)0)->member)
 #define container_of(ptr, type, member) ({                      \
@@ -102,7 +103,9 @@ extern osMutexId mutex_iic1Handle;
 extern osMutexId mutex_printfHandle;
 extern osMutexId mtx_batctrl;
 extern osMutexId mtx_batchg;
+extern osMutexId mtx_canbuf;
 extern osSemaphoreId sem_consoleHandle;
+extern osSemaphoreId sem_canprint;
 extern osSemaphoreId csemHandle;
 extern QueueHandle_t q_canmsg;
 extern TimerHandle_t timer_pump1_start;

@@ -12,9 +12,10 @@
 #include "app_include.h"
 
 /* Private macro -------------------------------------------------------------*/
-
+#define BUF_SIZE 512
 
 /* Private typedef -----------------------------------------------------------*/
+
 
 /* Private variables ---------------------------------------------------------*/
 CAN_TxHeaderTypeDef             TxHeader;
@@ -31,6 +32,10 @@ uint8_t                         ccb_rst_times = 0;
 
 uint32_t                        led_white_lock_time = 0;
 uint32_t                        led_red_lock_time = 0;
+
+static char buf1[BUF_SIZE];
+static char buf2[BUF_SIZE];
+static char *buf_print;
 
 stVariableTable bat_var_table[2][25] = {
     {
@@ -90,6 +95,8 @@ stVariableTable bat_var_table[2][25] = {
 };
 
 /* Private function prototypes -----------------------------------------------*/
+void Thread_CANPrint(uint8_t *);
+
 
 /* Code begin ----------------------------------------------------------------*/
 static void
@@ -1069,8 +1076,9 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 void Thread_CANComm(void *p)
 {
     stCanPacket pkt;
-    char buf[32] = {'c','a','n',':',' ',};
-    int8_t i = 0, j = 0;
+    char *buf_recv = buf1;
+    uint16_t i = 2;
+    uint8_t j = 0;
     uint32_t latest_time_stamp;
 
     xprintf("thread_can start\n\r");
@@ -1079,24 +1087,37 @@ void Thread_CANComm(void *p)
         if (xQueueReceive(q_canmsg, &pkt, 5/portTICK_PERIOD_MS) == pdPASS) {
             CmdHandler((const stCanPacket *)&pkt);
             if (CANMonitoring == ON) {
-                i = 5;
-                sprintf(&buf[i], "%08x", pkt.id.all);
-                i+= 8;
-                buf[i++] = ' ';
-                sprintf(&buf[i++], "%01u", pkt.dlc);
-                buf[i++] = ' ';
-                for (j=0; j<pkt.dlc; j++) {
-                    sprintf(&buf[i], "%02x", pkt.data[j]);
-                    i += 2;
-                    buf[i++] = ' ';
+                if (11 + pkt.dlc * 3 > BUF_SIZE - i) {  // current buffer full
+                    osMutexWait(mtx_canbuf, osWaitForever);
+                    if (buf_print == NULL || GetShortH(buf_print) == 0) {
+                        osMutexRelease(mtx_canbuf);
+                        buf_print = buf_recv;
+                        buf_recv = buf_recv == buf1 ? buf2 : buf1;
+                        WriteShortH(buf_print, i - 1);
+                        xSemaphoreGive(sem_canprint);
+                        i = 2;
+                    } else {
+                        osMutexRelease(mtx_canbuf);
+                        goto COMMON_HANDLE;
+                    }
                 }
-                buf[i] = '\0';
-                xprintf("%s\n\r", buf);
-                memset(&buf[5], 0, i-5+1);
+                sprintf(buf_recv + i, "%08x", pkt.id.all);
+                i+= 8;
+                buf_recv[i++] = ' ';
+                sprintf(&buf_recv[i++], "%01u", pkt.dlc);
+                buf_recv[i++] = ' ';
+                for (j=0; j<pkt.dlc; j++) {
+                    sprintf(&buf_recv[i], "%02x", pkt.data[j]);
+                    i += 2;
+                    buf_recv[i++] = ' ';
+                }
+                buf_recv[i++] = '\n';
+                buf_recv[i++] = '\r';
             }
             latest_time_stamp = GetSecond();
         }
 
+COMMON_HANDLE:
         if (GetSecond() - latest_time_stamp >= 15) {
             HeaterContactHandler(0);
         }
@@ -1173,5 +1194,20 @@ void CAN_ManualSend(uint8_t *p)
     HAL_CAN_AddTxMessage(&hcan, &txheader, txdata, &TxMailBox);
 }
 
+void Thread_CANPrint(uint8_t *buf)
+{
+    uint16_t len;
+
+    while (1) {
+        xSemaphoreTake(sem_canprint, portMAX_DELAY);
+        len = GetShortH(buf_print);
+        osMutexWait(mutex_printfHandle, osWaitForever);
+        HAL_UART_Transmit(UARTHANDLE, (uint8_t *)&buf_print[2], len, 0xFFFF);
+        osMutexRelease(mutex_printfHandle);
+        osMutexWait(mtx_canbuf, osWaitForever);
+        memset(buf_print, 0, 2);
+        osMutexRelease(mtx_canbuf);
+    }
+}
 
 
